@@ -16,40 +16,46 @@
             overflow: hidden; /* Nasconde le barre di scorrimento */
         }
 
-        /* Stile aggiornato per il contenitore del gioco: PARETE DI MATTONI */
+        /* *** AGGIORNAMENTO CRUCIALE: Rendi il contenitore del gioco FLESSIBILE *** */
         #game-container {
-            /* Fallback e uso del file caricato dall'utente */
+            position: absolute; /* Usiamo absolute per l'adattabilità al 100% dell'area */
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%; 
+            border-radius: 0; /* Rimuoviamo i bordi arrotondati per coprire tutto lo schermo su mobile */
+            
             background-color: #994c30; 
             background-image: url('sfondo-mattoni.jpg'); 
             background-size: 300px 300px; 
             background-repeat: repeat; 
             background-position: top left;
-            border-color: #6d412e; /* Bordo più scuro */
+            border-color: #6d412e;
         }
         
         /* NUOVO STILE: Marciapiede/Pavimento */
         #ground {
-            background-color: #5d5d5d; /* Grigio Marciapiede */
-            /* Simula le fughe del marciapiede */
+            background-color: #5d5d5d;
             background-image: linear-gradient(0deg, transparent 50%, rgba(0,0,0,0.3) 50%),
                               linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.3) 50%);
             background-size: 100% 25px, 25px 100%;
-            background-position: 0 0, 12.5px 0; /* Offset per le piastrelle */
-            border-top: 8px solid #333; /* Bordo scuro del marciapiede */
+            background-position: 0 0, 12.5px 0;
+            border-top: 8px solid #333;
             box-shadow: inset 0 10px 20px rgba(0, 0, 0, 0.4);
-            pointer-events: none; /* Non blocca il tocco del mouse/dito */
-            z-index: 10; /* Assicura che la pallina e la scia stiano sopra */
+            pointer-events: none;
+            z-index: 10;
         }
         
         /* Stile per la pallina con un gradiente e un'ombra per darle profondità */
         #ball {
-            width: 60px;
+            /* Le dimensioni saranno gestite in JS in base alla dimensione dello schermo */
+            width: 60px; 
             height: 60px;
             border-radius: 50%;
             position: absolute;
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            user-select: none; /* Impedisce la selezione del testo sulla pallina */
+            user-select: none;
             transition: transform 0.3s ease-out, background 0.3s ease-out, opacity 0.3s ease-out; 
             z-index: 20; 
         }
@@ -102,12 +108,27 @@
         #audio-toggle-button {
             transition: opacity 0.3s;
         }
+        
+        /* Adattamento per dispositivi piccoli (Smartphone) */
+        @media (max-width: 640px) {
+            #game-container {
+                /* Copre interamente la viewport senza margini */
+                border-radius: 0;
+            }
+            .text-6xl {
+                font-size: 3rem; /* Dimensione del testo più piccola per la splash screen */
+            }
+            .text-2xl {
+                font-size: 1.25rem;
+            }
+        }
 
     </style>
 </head>
 <body class="bg-gray-900 flex items-center justify-center h-screen m-0 p-0">
 
-    <div id="game-container" class="relative w-full h-full max-w-md max-h-[800px] rounded-lg shadow-2xl overflow-hidden border-2 border-sky-500">
+    <!-- Rimuovo max-w-md e max-h-[800px] per l'adattabilità completa su mobile -->
+    <div id="game-container" class="relative shadow-2xl overflow-hidden border-2 border-sky-500">
         
         <!-- ELEMENTO PER L'HIGH SCORE -->
         <div id="high-score-display" class="absolute top-4 right-4 text-white text-xl font-semibold bg-sky-600/50 p-2 rounded-lg shadow-md z-30">
@@ -138,7 +159,8 @@
             <div class="text-center p-8">
                 <!-- LOGO IMMAGINE -->
                 <div class="mx-auto w-24 h-24 flex items-center justify-center mb-6 shadow-2xl transform rotate-3 scale-110 animate-pulse rounded-full overflow-hidden border-4 border-white/50">
-                    <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
+                    <!-- Utilizzo di un placeholder generico come fallback per l'immagine logo -->
+                    <img src="logo78.jpg" onerror="this.onerror=null;this.src='https://placehold.co/96x96/60A5FA/FFFFFF?text=Logo';" alt="Logo 78" class="w-full h-full object-cover">
                 </div>
                 <h1 class="text-6xl font-extrabold text-white mb-2 tracking-wider drop-shadow-lg">Pallina Rimbalzante</h1>
                 <p class="text-2xl text-sky-400 mt-4">Caricamento...</p>
@@ -153,7 +175,7 @@
                 <div class="mb-8">
                     <!-- LOGO IMMAGINE -->
                     <div class="mx-auto w-20 h-20 flex items-center justify-center mb-4 shadow-lg rounded-full overflow-hidden border-2 border-white/50">
-                         <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
+                         <img src="logo78.jpg" onerror="this.onerror=null;this.src='https://placehold.co/80x80/60A5FA/FFFFFF?text=Logo';" alt="Logo 78" class="w-full h-full object-cover">
                     </div>
                     <h1 class="text-5xl font-extrabold text-white mb-2">Pallina Rimbalzante</h1>
                     <p class="text-xl text-sky-400">Tocca la pallina per mantenerla in aria.</p>
@@ -166,8 +188,7 @@
                     <!-- Le opzioni delle palline verranno generate qui da JavaScript -->
                 </div>
                 
-                <!-- NUOVO PULSANTE PER L'ATTIVAZIONE DELL'AUDIO (necessario per i browser) -->
-                <!-- CHIAMIAMO ASINCRONAMENTE IL TOGGLE AUDIO -->
+                <!-- PULSANTE PER L'ATTIVAZIONE DELL'AUDIO -->
                 <button id="audio-toggle-button" class="flex items-center justify-center w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800 text-lg font-bold rounded-lg shadow-md transition duration-150 mb-4" onclick="toggleAudio(true)">
                     <!-- Icona speaker/volume -->
                     <svg id="audio-icon" class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
@@ -197,19 +218,11 @@
         const ballSelectionContainer = document.getElementById('ball-selection-container'); 
         const splashScreen = document.getElementById('splash-screen'); 
         const audioToggleButton = document.getElementById('audio-toggle-button');
-
-        // --- DEFINIZIONE DEGLI STILI DELLE PALLINE ---
-        const BALL_STYLES = [
-            { id: 1, name: 'Cielo', className: 'ball-1' },
-            { id: 2, name: 'Fuoco', className: 'ball-2' },
-            { id: 3, name: 'Limone', className: 'ball-3' },
-            { id: 4, name: 'Magica', className: 'ball-4' },
-            { id: 5, name: 'Menta', className: 'ball-5' }
-        ];
-
-        // --- IMPOSTAZIONI DEL GIOCO E FISICA ---
-        const BASE_GRAVITY = 0.6;
-        const BASE_JUMP_FORCE = -15;
+        
+        // --- VARIABILI GLOBALI PER LA FISICA DINAMICA ---
+        let BALL_SIZE_PX = 60; // Dimensione iniziale della pallina
+        let BASE_GRAVITY = 0.6;
+        let BASE_JUMP_FORCE = -15;
         const restitution = 0.85;     
         const TAP_FORCE_X = 10;       
         const dampingX = 0.98;        
@@ -217,35 +230,65 @@
         // Variabili Dinamiche
         let gravity = BASE_GRAVITY;
         let jumpForce = BASE_JUMP_FORCE;
-        let positionY = 50;
+        let positionY = 0;
         let velocityY = 0;
-        let positionX; 
+        let positionX = 0; 
         let velocityX = 0;
 
         // Stato di Gioco e Punteggio
         let score = 0;
+        // *** AGGIORNAMENTO: Carica l'High Score da localStorage ***
         let highScore = parseInt(localStorage.getItem('bouncingBallHighScore') || '0', 10); 
         let consecutiveTaps = 0;
         let isClampedToGround = false;
         let isGameOver = false; 
         let isGameRunning = false;
         let lastSpeedIncreaseScore = 0; 
-        let isAudioEnabled = false; // Nuovo flag per lo stato audio
+        let isAudioEnabled = false; 
 
         // Variabili di selezione
         let selectedBallId = 1; 
         let selectedBallStyle = 'ball-1'; 
-        let selectedBallColor = '#4682B4'; // Blu di default
+        let selectedBallColor = '#4682B4';
 
         // Variabili audio
         let lastBounceTime = 0;        
         const minTimeBetweenBounces = 0.05; 
         let bgMusicLoop; 
         let introMusicLoop; 
-
-        // --- GESTIONE DEI SUONI con Tone.js ---
         
-        // Funzione asincrona per sbloccare il contesto audio e avviare il transport
+        // --- ADATTABILITÀ (RESPONSIVE) ---
+        // Funzione per calcolare le dimensioni e le forze in base alla viewport
+        function calculateGameMetrics() {
+            const containerHeight = gameContainer.offsetHeight;
+            
+            // Definiamo la dimensione della pallina in base alla larghezza della viewport (es. 15% della larghezza)
+            // Usiamo Math.min per non farla diventare troppo grande su schermi enormi
+            BALL_SIZE_PX = Math.min(gameContainer.offsetWidth * 0.15, 80); 
+            
+            // Scala le forze in base all'altezza del contenitore per mantenere la stessa sensazione di gioco
+            const heightScale = containerHeight / 800; // 800px era l'altezza target
+            gravity = BASE_GRAVITY * heightScale;
+            jumpForce = BASE_JUMP_FORCE * heightScale;
+
+            // Aggiorna immediatamente le dimensioni della pallina
+            ball.style.width = `${BALL_SIZE_PX}px`;
+            ball.style.height = `${BALL_SIZE_PX}px`;
+            
+            // Aggiorna la posizione X per centrarla
+            positionX = gameContainer.offsetWidth / 2 - BALL_SIZE_PX / 2;
+            ball.style.left = `${positionX}px`;
+            
+            console.log(`Dimensioni aggiornate: Ball=${BALL_SIZE_PX}px, Gravity=${gravity.toFixed(2)}, JumpForce=${jumpForce.toFixed(2)}`);
+        }
+        
+        // Aggiorna le metriche al caricamento e ad ogni resize
+        window.addEventListener('load', calculateGameMetrics);
+        window.addEventListener('resize', calculateGameMetrics);
+
+
+        // --- GESTIONE DEI SUONI con Tone.js (Stesse funzioni di prima) ---
+        
         async function startAudioContext() {
             if (Tone.context.state !== 'running') {
                 try {
@@ -253,22 +296,19 @@
                     console.log("Audio Context e Tone.start() Sbloccati.");
                 } catch(error) {
                     console.error("Errore nell'avvio di Tone.js:", error);
-                    return false; // Fallito
+                    return false;
                 }
             }
             if (Tone.Transport.state !== 'started') {
                 Tone.Transport.start(); 
-                console.log("Tone Transport avviato.");
             }
             
             isAudioEnabled = true;
-            // Nasconde il pulsante di attivazione audio
             audioToggleButton.style.opacity = '0';
             setTimeout(() => { audioToggleButton.classList.add('hidden'); }, 300);
-            return true; // Successo
+            return true;
         };
         
-        // Funzione per attivare l'audio e avviare la musica introduttiva (chiamata dal pulsante)
         window.toggleAudio = async function(startIntro = false) {
             if (!isAudioEnabled) {
                 const started = await startAudioContext();
@@ -278,7 +318,6 @@
             }
         }
 
-
         const jumpSynth = new Tone.Synth({
             oscillator: { type: 'sine' },
             envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 }
@@ -286,10 +325,7 @@
 
         const bounceSynth = new Tone.FMSynth({
             envelope: {
-                attack: 0.005,
-                decay: 0.1,
-                sustain: 0.0,
-                release: 0.1
+                attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.1
             },
             volume: -5 
         }).toDestination();
@@ -303,7 +339,7 @@
         const gameBgSynth = new Tone.Synth({
             oscillator: { type: 'square' },
             envelope: { attack: 0.005, decay: 0.1, sustain: 0.2, release: 0.5 },
-            volume: -15 // Volume della musica di gioco (più basso)
+            volume: -15
         }).toDestination();
 
         const gameMelody = ["C4", ["E4", "G4"], "C5", ["G4", "E4"], "C4", ["E4", "G4"], "F4", "D4"];
@@ -330,19 +366,16 @@
             }, gameNoteDuration).start(0);
         }
         
-        // Ho cambiato il tipo di sintetizzatore ad un **PolySynth** per poter suonare accordi
         const introBgSynth = new Tone.PolySynth(Tone.AMSynth, {
-            oscillator: { type: 'square' }, // Onde quadre per un suono più "arcade"
+            oscillator: { type: 'square' },
             envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.5 }, 
             volume: -8 
         }).toDestination();
         
-        // *** NUOVA MELODIA VIVACE: Arpeggi veloci in C maggiore ***
-        // C4-E4-G4 (C maj) e G4-C5-E5 (C maj arpeggio superiore)
         const introMelody = ["C4", "E4", "G4", "C5", "G4", "C5", "E5", "G5"]; 
         let introMelodyIndex = 0;
-        const introBpm = 140; // BPM più veloce
-        const introNoteDuration = "8n"; // Durata delle note più corta
+        const introBpm = 140;
+        const introNoteDuration = "8n";
 
         function startIntroMusic() {
              if (!isAudioEnabled) return;
@@ -359,8 +392,6 @@
             }, introNoteDuration).start(0);
         }
 
-
-        // Funzione per fermare tutta la musica
         function stopMusic() {
             if (bgMusicLoop) {
                 bgMusicLoop.dispose();
@@ -377,34 +408,39 @@
         function updateScoreDisplay() {
             scoreDisplay.firstChild.textContent = `Punti: ${score}`;
             comboDisplay.textContent = `Combo: ${consecutiveTaps}`;
+            // *** AGGIORNAMENTO: Mostra il record attuale ***
             highScoreDisplay.textContent = `Record: ${highScore}`;
             startHighScoreDisplay.textContent = highScore; 
         }
-
+        
         // --- LOGICA DI SELEZIONE DELLA PALLINA ---
+        const BALL_STYLES = [
+            { id: 1, name: 'Cielo', className: 'ball-1' },
+            { id: 2, name: 'Fuoco', className: 'ball-2' },
+            { id: 3, name: 'Limone', className: 'ball-3' },
+            { id: 4, name: 'Magica', className: 'ball-4' },
+            { id: 5, name: 'Menta', className: 'ball-5' }
+        ];
+
         window.selectBall = function(id) {
             const newSelection = BALL_STYLES.find(style => style.id === id);
             if (!newSelection) return;
 
-            // Aggiorna lo stato
             selectedBallId = id;
             selectedBallStyle = newSelection.className;
             
-            // Estrai il colore per la scia
             switch (id) {
-                case 1: selectedBallColor = '#4682B4'; break; // Blu (Cielo)
-                case 2: selectedBallColor = '#FF4500'; break; // Rosso (Fuoco)
-                case 3: selectedBallColor = '#FFFF00'; break; // Giallo (Limone)
-                case 4: selectedBallColor = '#EE82EE'; break; // Viola (Magica)
-                case 5: selectedBallColor = '#3CB371'; break; // Verde (Menta)
+                case 1: selectedBallColor = '#4682B4'; break;
+                case 2: selectedBallColor = '#FF4500'; break;
+                case 3: selectedBallColor = '#FFFF00'; break;
+                case 4: selectedBallColor = '#EE82EE'; break;
+                case 5: selectedBallColor = '#3CB371'; break;
                 default: selectedBallColor = 'rgba(255,255,255, 0.5)';
             }
             
-            // Aggiorna la visualizzazione
             ball.className = ''; 
             ball.classList.add(selectedBallStyle);
             
-            // Aggiorna l'interfaccia di selezione
             document.querySelectorAll('.ball-option').forEach(option => {
                 option.classList.remove('selected');
                 if (parseInt(option.dataset.ballId, 10) === id) {
@@ -413,7 +449,6 @@
             });
         }
         
-        // --- RENDERING DELLE OPZIONI DI SELEZIONE ---
         function renderBallSelection() {
             ballSelectionContainer.innerHTML = BALL_STYLES.map(style => `
                 <div 
@@ -441,7 +476,7 @@
             
             const trailColor = selectedBallColor;
 
-            const ballSize = ball.offsetWidth;
+            const ballSize = BALL_SIZE_PX;
             const size = ballSize * 0.7; 
             
             const x = positionX + (ballSize - size) / 2;
@@ -474,6 +509,9 @@
         
         // --- FUNZIONE DI RESET DEL GIOCO/RESPAWN ---
         function resetGame() {
+            calculateGameMetrics(); // Ricalcola le metriche per il responsive
+
+            // Reset delle forze iniziali
             gravity = BASE_GRAVITY;
             jumpForce = BASE_JUMP_FORCE;
             lastSpeedIncreaseScore = 0;
@@ -483,17 +521,18 @@
             velocityX = 0;
             isClampedToGround = false;
             
+            // Reset visivo della pallina
             ball.className = '';
             ball.classList.add(selectedBallStyle);
-            ball.style.background = ''; 
-            ball.style.width = '60px';
-            ball.style.height = '60px';
+            ball.style.width = `${BALL_SIZE_PX}px`;
+            ball.style.height = `${BALL_SIZE_PX}px`;
             ball.style.opacity = '1';
             ball.style.transform = 'scale(1)'; 
             ball.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
             ball.style.display = 'block'; 
 
-            positionX = gameContainer.offsetWidth / 2 - ball.offsetWidth / 2;
+            // Posiziona la pallina centrata
+            positionX = gameContainer.offsetWidth / 2 - BALL_SIZE_PX / 2;
             ball.style.top = `${positionY}px`;
             ball.style.left = `${positionX}px`;
 
@@ -505,7 +544,6 @@
         // --- LOGICA DI AVVIO DEL GIOCO ---
         function startGame() {
             stopMusic(); 
-            // Se l'audio è abilitato, avvia la musica di gioco
             if (isAudioEnabled) {
                 startGameMusic(); 
             }
@@ -515,11 +553,9 @@
             resetGame(); 
         }
         
-        // Uso di mousedown e touchstart per coprire sia mouse che touch
         startButton.addEventListener('mousedown', async (e) => {
-            // Tenta di avviare l'audio prima di iniziare, se non è già attivo
             if (!isAudioEnabled) {
-                await toggleAudio(false); // Sblocca solo il contesto, non avvia la musica introduttiva
+                await toggleAudio(false);
             }
             startGame();
             e.preventDefault(); 
@@ -536,10 +572,7 @@
         function handleInteraction(event) {
             if (!isGameRunning || isGameOver) return; 
 
-            // Se l'audio non è ancora abilitato, un tocco sul gioco lo abilita e riproduce il suono
             if (!isAudioEnabled) {
-                // Non possiamo usare 'await' direttamente in un normale handler di eventi. 
-                // Chiamiamo la funzione e andiamo avanti; i suoni del gioco partiranno al primo balzo.
                 startAudioContext(); 
             }
 
@@ -547,9 +580,10 @@
             score += 10;
             consecutiveTaps++;
 
+            // La difficoltà è scalata in base all'altezza (vedi calculateGameMetrics)
             if (score > 0 && Math.floor(score / 50) > Math.floor(lastSpeedIncreaseScore / 50)) {
-                gravity += 0.05; 
-                jumpForce -= 1.0; 
+                gravity += 0.05 * (gameContainer.offsetHeight / 800); 
+                jumpForce -= 1.0 * (gameContainer.offsetHeight / 800); 
                 lastSpeedIncreaseScore = score;
             }
 
@@ -597,11 +631,10 @@
             positionX += velocityX;
 
             // 2. Controlla le collisioni orizzontali
-            const ballSize = ball.offsetWidth;
             const containerWidth = gameContainer.offsetWidth;
 
-            if (positionX + ballSize >= containerWidth) { 
-                positionX = containerWidth - ballSize; 
+            if (positionX + BALL_SIZE_PX >= containerWidth) { 
+                positionX = containerWidth - BALL_SIZE_PX; 
                 velocityX = -velocityX * restitution; 
             } else if (positionX <= 0) { 
                 positionX = 0; 
@@ -610,7 +643,7 @@
             
             // 3. Controlla le collisioni con il "pavimento"
             const groundHeight = ground.offsetHeight; 
-            const groundPosition = gameContainer.offsetHeight - groundHeight - ball.offsetWidth;
+            const groundPosition = gameContainer.offsetHeight - groundHeight - BALL_SIZE_PX;
             
             if (positionY >= groundPosition) {
                 
@@ -621,10 +654,12 @@
                         // --- LOGICA DI FINE PARTITA ---
                         stopMusic(); 
                         
+                        // *** AGGIORNAMENTO CRUCIALE: Salva il nuovo record ***
                         if (score > highScore) {
                             highScore = score;
-                            localStorage.setItem('bouncingBallHighScore', highScore.toString());
+                            localStorage.setItem('bouncingBallHighScore', highScore.toString()); // Salva su localStorage
                         }
+                        
                         score = 0; 
                         consecutiveTaps = 0;
                         updateScoreDisplay(); 
@@ -645,10 +680,8 @@
 
                             setTimeout(() => {
                                 isGameRunning = false; 
-                                // Mostra il menu START e la musica introduttiva (se l'audio è attivo)
                                 startOverlay.classList.remove('hidden'); 
                                 renderBallSelection(); 
-                                // Se l'audio è stato attivato dal pulsante 'Attiva Audio', la musica partirà qui
                                 if(isAudioEnabled) startIntroMusic(); 
                             }, 1700); 
 
@@ -682,23 +715,23 @@
         
         // --- LOGICA SPLASH SCREEN E AVVIO INIZIALE ---
         function initialSetup() {
+            calculateGameMetrics(); // Inizializza le metriche responsive al primo avvio
+            updateScoreDisplay(); // Mostra subito l'high score caricato
+            
             splashScreen.style.opacity = '1';
             
-            // Imposta il timer per la dissolvenza automatica dopo 3 secondi
             setTimeout(() => {
-                splashScreen.style.opacity = '0'; // Avvia la transizione CSS (1000ms)
-            }, 3000); // 3 secondi di attesa automatica
+                splashScreen.style.opacity = '0';
+            }, 3000); 
 
-            // Nasconde la splash screen DOPO la fine della transizione
             setTimeout(() => {
                 splashScreen.classList.add('hidden'); 
                 startOverlay.classList.remove('hidden'); 
                 renderBallSelection(); 
-            }, 4000); // 3000ms di attesa + 1000ms di transizione
+            }, 4000);
         }
 
         // --- INIZIO DEL GIOCO ---
-        // Avviamo il loop di gioco e la transizione automatica.
         initialSetup(); 
         gameLoop(); 
     </script>
