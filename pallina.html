@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pallina Rimbalzante</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Manteniamo la stessa versione di Tone.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         /* Usiamo un font pulito e moderno */
@@ -15,8 +14,8 @@
             touch-action: none; /* Previene lo zoom o lo scroll su mobile al tocco */
             overflow: hidden; /* Nasconde le barre di scorrimento */
         }
-
-        /* AGGIORNAMENTO CRUCIALE: Rendi il contenitore del gioco FLESSIBILE */
+        
+        /* Contenitore principale del gioco - Lo stilizziamo per la dimensione massima dello schermo */
         #game-container {
             position: absolute; 
             width: 100%;
@@ -26,6 +25,7 @@
             border-radius: 0; 
             
             background-color: #994c30; 
+            /* Se le immagini non caricano, usa un fallback colorato */
             background-image: url('sfondo-mattoni.jpg'); 
             background-size: 300px 300px; 
             background-repeat: repeat; 
@@ -48,7 +48,6 @@
         
         /* Stile per la pallina con un gradiente e un'ombra per darle profondità */
         #ball {
-            /* Le dimensioni saranno gestite in JS in base alla dimensione dello schermo */
             width: 60px; 
             height: 60px;
             border-radius: 50%;
@@ -109,36 +108,48 @@
             transition: opacity 0.3s;
         }
         
-        /* Adattamento per dispositivi piccoli (Smartphone) */
-        @media (max-width: 640px) {
-            /* NUOVA CORREZIONE: Riduce la dimensione dei titoli su schermi piccoli */
+        /* ADATTAMENTO MOBILE: Correzioni estreme per schermi molto piccoli */
+        @media (max-width: 450px) {
+            /* CORREZIONE CRITICA 1: Rimuove i font enormi che causano il troncamento */
             .text-6xl {
-                font-size: 2.5rem; /* Da 6xl a circa 40px */
+                font-size: 2.2rem; 
             }
             .text-5xl {
-                font-size: 2.25rem; /* Da 5xl a circa 36px */
+                font-size: 1.8rem; 
             }
             .text-2xl {
-                font-size: 1.1rem;
-            }
-            .text-xl {
                 font-size: 1rem;
             }
-            /* Rimuove i margini troppo grandi nel contenitore principale su mobile */
-            .p-8 {
-                padding: 1.5rem; 
+            .text-xl {
+                font-size: 0.9rem;
             }
-            /* Aumenta la dimensione del bottone start per il touch */
+            /* Assicura che la pallina non sia troppo grande */
+            #ball {
+                 width: 50px; 
+                 height: 50px;
+            }
+            .ball-option {
+                width: 30px;
+                height: 30px;
+            }
             #start-button {
-                padding: 0.75rem 2rem;
-                font-size: 2rem;
+                padding: 0.5rem 1.5rem;
+                font-size: 1.5rem;
             }
+        }
+        
+        /* CORREZIONE CRITICA 2: Gestisce il layout per garantire il marciapiede */
+        .h-screen-safe {
+             /* Rimuoviamo h-screen da body per i device mobili e usiamo il flexbox */
+             height: 100vh;
         }
 
     </style>
 </head>
-<body class="bg-gray-900 flex items-center justify-center h-screen m-0 p-0">
+<!-- Aggiungiamo 'h-screen-safe' al body per usare l'altezza massima disponibile -->
+<body class="bg-gray-900 flex items-center justify-center m-0 p-0 h-screen-safe">
 
+    <!-- Rimuoviamo le classi h-screen/h-full da qui e le gestiamo in JS per il responsive -->
     <div id="game-container" class="relative shadow-2xl overflow-hidden border-2 border-sky-500">
         
         <!-- ELEMENTO PER L'HIGH SCORE -->
@@ -155,7 +166,7 @@
         <div id="ball"></div>
         
         <!-- Elemento per il Marciapiede/Pavimento (z-index: 10) -->
-        <!-- Altezza fissa di 50px per assicurarne la visibilità -->
+        <!-- Altezza fissa di 50px -->
         <div id="ground" class="absolute bottom-0 left-0 w-full h-[50px] z-10"></div> 
         
         <!-- MESSAGGIO DI FINE PARTITA (Nascosto di default) -->
@@ -273,14 +284,22 @@
         // --- ADATTABILITÀ (RESPONSIVE) ---
         // Funzione per calcolare le dimensioni e le forze in base alla viewport
         function calculateGameMetrics() {
-            const containerHeight = gameContainer.offsetHeight;
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
             
-            // Definiamo la dimensione della pallina in base alla larghezza della viewport (es. 15% della larghezza)
-            // Usiamo Math.min per non farla diventare troppo grande su schermi enormi
-            BALL_SIZE_PX = Math.min(gameContainer.offsetWidth * 0.15, 80); 
+            // Definiamo un'altezza massima per il container che tiene conto del marciapiede (50px)
+            const groundHeight = ground.offsetHeight;
+            const maxContainerHeight = viewportHeight;
+
+            // Il container deve occupare tutto lo spazio disponibile
+            gameContainer.style.width = `${viewportWidth}px`;
+            gameContainer.style.height = `${maxContainerHeight}px`;
+
+            // Dimensione della pallina in base alla larghezza (max 80px)
+            BALL_SIZE_PX = Math.min(viewportWidth * 0.15, 80); 
             
             // Scala le forze in base all'altezza del contenitore per mantenere la stessa sensazione di gioco
-            const heightScale = containerHeight / 800; // 800px era l'altezza target
+            const heightScale = maxContainerHeight / 800; // 800px era l'altezza target
             gravity = BASE_GRAVITY * heightScale;
             jumpForce = BASE_JUMP_FORCE * heightScale;
 
@@ -289,10 +308,10 @@
             ball.style.height = `${BALL_SIZE_PX}px`;
             
             // Aggiorna la posizione X per centrarla
-            positionX = gameContainer.offsetWidth / 2 - BALL_SIZE_PX / 2;
+            positionX = viewportWidth / 2 - BALL_SIZE_PX / 2;
             ball.style.left = `${positionX}px`;
             
-            console.log(`Dimensioni aggiornate: Ball=${BALL_SIZE_PX}px, Gravity=${gravity.toFixed(2)}, JumpForce=${jumpForce.toFixed(2)}`);
+            console.log(`Dimensioni aggiornate: Ball=${BALL_SIZE_PX}px, Gravity=${gravity.toFixed(2)}`);
         }
         
         // Aggiorna le metriche al caricamento e ad ogni resize
@@ -300,7 +319,7 @@
         window.addEventListener('resize', calculateGameMetrics);
 
 
-        // --- GESTIONE DEI SUONI con Tone.js (Stesse funzioni di prima) ---
+        // --- GESTIONE DEI SUONI con Tone.js ---
         
         async function startAudioContext() {
             if (Tone.context.state !== 'running') {
@@ -529,10 +548,13 @@
             jumpForce = BASE_JUMP_FORCE;
             lastSpeedIncreaseScore = 0;
             
-            // NUOVA LOGICA: Posiziona la pallina a 50px sopra il marciapiede (50px è l'altezza del marciapiede)
+            // LOGICA MARCIAPIEDE: ground.offsetHeight è sempre 50px come definito in CSS
             const groundHeight = ground.offsetHeight;
-            const startY = gameContainer.offsetHeight - groundHeight - BALL_SIZE_PX - 50; 
-            positionY = Math.max(0, startY); // Assicura che non vada oltre la cima se il container è molto piccolo
+            const containerHeight = gameContainer.offsetHeight;
+
+            // Posiziona la pallina a 50px sopra il marciapiede (50px è l'altezza del marciapiede)
+            const startY = containerHeight - groundHeight - BALL_SIZE_PX - 50; 
+            positionY = Math.max(0, startY); 
             
             velocityY = 0; 
             velocityX = 0;
@@ -660,7 +682,7 @@
             
             // 3. Controlla le collisioni con il "pavimento"
             const groundHeight = ground.offsetHeight; 
-            // CORREZIONE CRUCIALE: Calcola la posizione del pavimento
+            // Calcola la posizione del pavimento
             const groundPosition = gameContainer.offsetHeight - groundHeight - BALL_SIZE_PX;
             
             if (positionY >= groundPosition) {
