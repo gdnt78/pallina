@@ -9,21 +9,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         /* Usiamo un font pulito e moderno */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
             touch-action: none; /* Previene lo zoom o lo scroll su mobile al tocco */
             overflow: hidden; /* Nasconde le barre di scorrimento */
         }
 
-        /* *** AGGIORNAMENTO CRUCIALE: Rendi il contenitore del gioco FLESSIBILE *** */
+        /* AGGIORNAMENTO CRUCIALE: Rendi il contenitore del gioco FLESSIBILE */
         #game-container {
-            position: absolute; /* Usiamo absolute per l'adattabilità al 100% dell'area */
+            position: absolute; 
             width: 100%;
             height: 100%;
             max-width: 100%;
             max-height: 100%; 
-            border-radius: 0; /* Rimuoviamo i bordi arrotondati per coprire tutto lo schermo su mobile */
+            border-radius: 0; 
             
             background-color: #994c30; 
             background-image: url('sfondo-mattoni.jpg'); 
@@ -111,15 +111,27 @@
         
         /* Adattamento per dispositivi piccoli (Smartphone) */
         @media (max-width: 640px) {
-            #game-container {
-                /* Copre interamente la viewport senza margini */
-                border-radius: 0;
-            }
+            /* NUOVA CORREZIONE: Riduce la dimensione dei titoli su schermi piccoli */
             .text-6xl {
-                font-size: 3rem; /* Dimensione del testo più piccola per la splash screen */
+                font-size: 2.5rem; /* Da 6xl a circa 40px */
+            }
+            .text-5xl {
+                font-size: 2.25rem; /* Da 5xl a circa 36px */
             }
             .text-2xl {
-                font-size: 1.25rem;
+                font-size: 1.1rem;
+            }
+            .text-xl {
+                font-size: 1rem;
+            }
+            /* Rimuove i margini troppo grandi nel contenitore principale su mobile */
+            .p-8 {
+                padding: 1.5rem; 
+            }
+            /* Aumenta la dimensione del bottone start per il touch */
+            #start-button {
+                padding: 0.75rem 2rem;
+                font-size: 2rem;
             }
         }
 
@@ -127,7 +139,6 @@
 </head>
 <body class="bg-gray-900 flex items-center justify-center h-screen m-0 p-0">
 
-    <!-- Rimuovo max-w-md e max-h-[800px] per l'adattabilità completa su mobile -->
     <div id="game-container" class="relative shadow-2xl overflow-hidden border-2 border-sky-500">
         
         <!-- ELEMENTO PER L'HIGH SCORE -->
@@ -144,6 +155,7 @@
         <div id="ball"></div>
         
         <!-- Elemento per il Marciapiede/Pavimento (z-index: 10) -->
+        <!-- Altezza fissa di 50px per assicurarne la visibilità -->
         <div id="ground" class="absolute bottom-0 left-0 w-full h-[50px] z-10"></div> 
         
         <!-- MESSAGGIO DI FINE PARTITA (Nascosto di default) -->
@@ -159,9 +171,9 @@
             <div class="text-center p-8">
                 <!-- LOGO IMMAGINE -->
                 <div class="mx-auto w-24 h-24 flex items-center justify-center mb-6 shadow-2xl transform rotate-3 scale-110 animate-pulse rounded-full overflow-hidden border-4 border-white/50">
-                    <!-- Utilizzo di un placeholder generico come fallback per l'immagine logo -->
                     <img src="logo78.jpg" onerror="this.onerror=null;this.src='https://placehold.co/96x96/60A5FA/FFFFFF?text=Logo';" alt="Logo 78" class="w-full h-full object-cover">
                 </div>
+                <!-- Classe text-6xl è ridotta su mobile dalla media query -->
                 <h1 class="text-6xl font-extrabold text-white mb-2 tracking-wider drop-shadow-lg">Pallina Rimbalzante</h1>
                 <p class="text-2xl text-sky-400 mt-4">Caricamento...</p>
             </div>
@@ -177,6 +189,7 @@
                     <div class="mx-auto w-20 h-20 flex items-center justify-center mb-4 shadow-lg rounded-full overflow-hidden border-2 border-white/50">
                          <img src="logo78.jpg" onerror="this.onerror=null;this.src='https://placehold.co/80x80/60A5FA/FFFFFF?text=Logo';" alt="Logo 78" class="w-full h-full object-cover">
                     </div>
+                    <!-- Classe text-5xl è ridotta su mobile dalla media query -->
                     <h1 class="text-5xl font-extrabold text-white mb-2">Pallina Rimbalzante</h1>
                     <p class="text-xl text-sky-400">Tocca la pallina per mantenerla in aria.</p>
                 </div>
@@ -237,7 +250,7 @@
 
         // Stato di Gioco e Punteggio
         let score = 0;
-        // *** AGGIORNAMENTO: Carica l'High Score da localStorage ***
+        // Carica l'High Score da localStorage
         let highScore = parseInt(localStorage.getItem('bouncingBallHighScore') || '0', 10); 
         let consecutiveTaps = 0;
         let isClampedToGround = false;
@@ -408,7 +421,7 @@
         function updateScoreDisplay() {
             scoreDisplay.firstChild.textContent = `Punti: ${score}`;
             comboDisplay.textContent = `Combo: ${consecutiveTaps}`;
-            // *** AGGIORNAMENTO: Mostra il record attuale ***
+            // Mostra il record attuale
             highScoreDisplay.textContent = `Record: ${highScore}`;
             startHighScoreDisplay.textContent = highScore; 
         }
@@ -516,7 +529,11 @@
             jumpForce = BASE_JUMP_FORCE;
             lastSpeedIncreaseScore = 0;
             
-            positionY = 50; 
+            // NUOVA LOGICA: Posiziona la pallina a 50px sopra il marciapiede (50px è l'altezza del marciapiede)
+            const groundHeight = ground.offsetHeight;
+            const startY = gameContainer.offsetHeight - groundHeight - BALL_SIZE_PX - 50; 
+            positionY = Math.max(0, startY); // Assicura che non vada oltre la cima se il container è molto piccolo
+            
             velocityY = 0; 
             velocityX = 0;
             isClampedToGround = false;
@@ -643,6 +660,7 @@
             
             // 3. Controlla le collisioni con il "pavimento"
             const groundHeight = ground.offsetHeight; 
+            // CORREZIONE CRUCIALE: Calcola la posizione del pavimento
             const groundPosition = gameContainer.offsetHeight - groundHeight - BALL_SIZE_PX;
             
             if (positionY >= groundPosition) {
@@ -654,10 +672,10 @@
                         // --- LOGICA DI FINE PARTITA ---
                         stopMusic(); 
                         
-                        // *** AGGIORNAMENTO CRUCIALE: Salva il nuovo record ***
+                        // Salva il nuovo record
                         if (score > highScore) {
                             highScore = score;
-                            localStorage.setItem('bouncingBallHighScore', highScore.toString()); // Salva su localStorage
+                            localStorage.setItem('bouncingBallHighScore', highScore.toString()); 
                         }
                         
                         score = 0; 
