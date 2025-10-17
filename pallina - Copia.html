@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounce Masters</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Manteniamo la stessa versione di Tone.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        /* Usiamo un font pulito e moderno */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none; /* Previene lo zoom o lo scroll su mobile al tocco */
+            overflow: hidden; /* Nasconde le barre di scorrimento */
+        }
+
+        /* Stile aggiornato per il contenitore del gioco: PARETE DI MATTONI */
+        #game-container {
+            /* Fallback e uso del file caricato dall'utente */
+            background-color: #994c30; 
+            background-image: url('sfondo-mattoni.jpg'); 
+            background-size: 300px 300px; 
+            background-repeat: repeat; 
+            background-position: top left;
+            border-color: #6d412e; /* Bordo più scuro */
+        }
+        
+        /* NUOVO STILE: Marciapiede/Pavimento */
+        #ground {
+            background-color: #5d5d5d; /* Grigio Marciapiede */
+            /* Simula le fughe del marciapiede */
+            background-image: linear-gradient(0deg, transparent 50%, rgba(0,0,0,0.3) 50%),
+                              linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.3) 50%);
+            background-size: 100% 25px, 25px 100%;
+            background-position: 0 0, 12.5px 0; /* Offset per le piastrelle */
+            border-top: 8px solid #333; /* Bordo scuro del marciapiede */
+            box-shadow: inset 0 10px 20px rgba(0, 0, 0, 0.4);
+            pointer-events: none; /* Non blocca il tocco del mouse/dito */
+            z-index: 10; /* Assicura che la pallina e la scia stiano sopra */
+        }
+        
+        /* Stile per la pallina con un gradiente e un'ombra per darle profondità */
+        #ball {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            user-select: none; /* Impedisce la selezione del testo sulla pallina */
+            transition: transform 0.3s ease-out, background 0.3s ease-out, opacity 0.3s ease-out; 
+            z-index: 20; 
+        }
+
+        /* *** STILE PER L'ELEMENTO SCIA *** */
+        .trail-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0; 
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out; 
+            pointer-events: none; 
+            z-index: 15; 
+        }
+
+        /* Stili per la selezione della pallina */
+        .ball-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out, border 0.1s ease-in-out;
+            margin: 0 5px;
+            border: 3px solid transparent; 
+        }
+        
+        .ball-option:hover {
+            transform: scale(1.1);
+        }
+
+        .ball-option.selected {
+            border-color: #fde047; 
+            transform: scale(1.2);
+            box-shadow: 0 0 15px #fde047;
+        }
+		
+		.ball-option.locked {
+			filter: grayscale(100%) brightness(0.5);
+			cursor: not-allowed;
+			position: relative;
+		}
+
+        /* Classi specifiche per il background delle palline */
+        .ball-1 { background: radial-gradient(circle at 30% 30%, #87CEEB, #4682B4); } 
+        .ball-2 { background: radial-gradient(circle at 70% 30%, #FF4500, #8B0000); } 
+        .ball-3 { background: radial-gradient(circle at 30% 70%, #FFFF00, #DAA520); } 
+        .ball-4 { background: radial-gradient(circle at 50% 50%, #EE82EE, #4B0082); } 
+        .ball-5 { background: radial-gradient(circle at 50% 50%, #90EE90, #3CB371); } 
+		.ball-basket{background:radial-gradient(circle at 30% 30%, #ffb347,#ff7f00 50%,#cc5a00 100%);box-shadow:inset 0 -6px 12px rgba(0,0,0,0.2)}
+		.ball-volley{background:radial-gradient(circle at 30% 30%, #fff,#f0f0f0 60%);box-shadow:inset 0 -4px 8px rgba(0,0,0,0.15)}
+		.ball-soccer{background:radial-gradient(circle at 30% 30%, #fff,#e6e6e6 60%);box-shadow:inset 0 -4px 8px rgba(0,0,0,0.2)}
+		.ball-tennis{background:radial-gradient(circle at 30% 25%, #eefe3f,#b7d700 70%);box-shadow:inset 0 -3px 8px rgba(0,0,0,0.15)}
+		.ball-golf{background:radial-gradient(circle at 30% 30%, #fff,#dcdcdc 60%);box-shadow:inset 0 -6px 12px rgba(0,0,0,0.12)}
+		.ball-rugby{background:radial-gradient(circle at 30% 30%, #c77b3a,#8b4b1b 70%);box-shadow:inset 0 -6px 12px rgba(0,0,0,0.3);border-radius:40% / 55%}
+
+
+        /* *** IMPORTANTE: Transizione per la dissolvenza della splash screen *** */
+        #splash-screen {
+             transition: opacity 1000ms ease-in-out; 
+        }
+
+        /* Stile per il pulsante audio (nascosto quando l'audio è attivo) */
+        #audio-toggle-button {
+            transition: opacity 0.3s;
+        }
+		
+		/* Effetto glow per i titoli principali */
+		h1 {
+		  letter-spacing: 2px;
+		  text-transform: uppercase;
+		  text-shadow: 0 0 15px rgba(253, 224, 71, 0.6);
+		}
+
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center h-screen m-0 p-0">
+
+    <div id="game-container" class="relative w-full h-screen max-w-md ...">
+        
+        <!-- ELEMENTO PER L'HIGH SCORE -->
+        <div id="high-score-display" class="absolute top-4 right-4 text-white text-xl font-semibold bg-sky-600/50 p-2 rounded-lg shadow-md z-30">
+            Record: 0
+        </div>
+
+        <!-- ELEMENTO PER IL PUNTEGGIO -->
+        <div id="score-display" class="absolute top-16 left-1/2 -translate-x-1/2 text-sky-400 font-bold text-4xl z-30 p-2 rounded-lg text-center">
+            Punti: 0<br><span id="combo-display" class="text-lg text-yellow-300">Combo: 0</span>
+        </div>
+        
+        <!-- La nostra pallina (z-index: 20) -->
+        <div id="ball"></div>
+        
+        <!-- Elemento per il Marciapiede/Pavimento (z-index: 10) -->
+        <div id="ground" class="absolute bottom-0 left-0 w-full h-[50px] z-10"></div> 
+        
+        <!-- MESSAGGIO DI FINE PARTITA (Nascosto di default) -->
+        <div id="game-over-message" class="absolute inset-0 flex items-center justify-center text-white text-4xl font-extrabold bg-black/70 z-40 hidden">
+            <div class="text-center p-8 rounded-xl bg-red-700/80 shadow-2xl">
+                <p>GAME OVER!</p>
+                <p class="text-lg mt-2">Nuova partita in arrivo...</p>
+            </div>
+        </div>
+        
+        <!-- SCHERMO DI INTRODUZIONE (Splash Screen) - Z-INDEX MAX -->
+        <div id="splash-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-60 bg-gray-900 opacity-100 transition-opacity duration-1000">
+            <div class="text-center p-8">
+                <!-- LOGO IMMAGINE -->
+                <div class="mx-auto w-24 h-24 flex items-center justify-center mb-6 shadow-2xl transform rotate-3 scale-110 animate-pulse rounded-full overflow-hidden border-4 border-white/50">
+                    <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
+                </div>
+                <h1 class="text-6xl font-extrabold text-white mb-2 tracking-wider drop-shadow-lg">Bounce Masters</h1>
+                <p class="text-2xl text-sky-400 mt-4">Caricamento...</p>
+            </div>
+        </div>
+
+        <!-- MESSAGGIO DI INIZIO GIOCO (OVERLAY) -->
+        <div id="start-overlay" class="absolute inset-0 flex items-center justify-center text-white z-50 hidden">
+            <div class="text-center p-8 rounded-xl bg-gray-900/90 shadow-2xl border-2 border-sky-500 max-w-sm w-11/12">
+                
+                <!-- SEZIONE LOGO E TITOLO -->
+                <div class="mb-8">
+                    <!-- LOGO IMMAGINE -->
+                    <div class="mx-auto w-20 h-20 flex items-center justify-center mb-4 shadow-lg rounded-full overflow-hidden border-2 border-white/50">
+                         <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
+                    </div>
+                    <h1 class="text-5xl font-extrabold text-white mb-2">Bounce Masters</h1>
+                    <p class="text-xl text-sky-400">Tocca la pallina per mantenerla in aria.</p>
+                </div>
+                <!-- FINE SEZIONE LOGO E TITOLO -->
+                
+                <!-- NUOVO CONTENITORE PER LA SELEZIONE DELLA PALLINA -->
+                <p class="text-lg mt-4 mb-2 text-gray-300">Scegli la tua pallina:</p>
+                <div id="ball-selection-container" class="flex justify-center mb-6">
+                    <!-- Le opzioni delle palline verranno generate qui da JavaScript -->
+                </div>
+                
+                <!-- NUOVO PULSANTE PER L'ATTIVAZIONE DELL'AUDIO (necessario per i browser) -->
+                <!-- CHIAMIAMO ASINCRONAMENTE IL TOGGLE AUDIO -->
+                <button id="audio-toggle-button" class="flex items-center justify-center w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800 text-lg font-bold rounded-lg shadow-md transition duration-150 mb-4" onclick="toggleAudio(true)">
+                    <!-- Icona speaker/volume -->
+                    <svg id="audio-icon" class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    Attiva Audio e Musica
+                </button>
+                
+                <button id="start-button" class="px-8 py-4 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-3xl font-bold rounded-xl shadow-lg transition duration-150 transform hover:scale-105">
+                    START
+                </button>
+                <p class="text-sm mt-4 text-gray-400">Record: <span id="start-high-score">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- INIZIALIZZAZIONE ELEMENTI HTML ---
+        const ball = document.getElementById('ball');
+        const gameContainer = document.getElementById('game-container');
+        const ground = document.getElementById('ground'); 
+        const scoreDisplay = document.getElementById('score-display');
+        const comboDisplay = document.getElementById('combo-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const startOverlay = document.getElementById('start-overlay');
+        const startButton = document.getElementById('start-button');
+        const startHighScoreDisplay = document.getElementById('start-high-score');
+        const ballSelectionContainer = document.getElementById('ball-selection-container'); 
+        const splashScreen = document.getElementById('splash-screen'); 
+        const audioToggleButton = document.getElementById('audio-toggle-button');
+
+        // --- DEFINIZIONE DEGLI STILI DELLE PALLINE ---
+		const BALL_STYLES = [
+		  { id:1, name:'Basket', className:'ball-basket', scoreMultiplier:1.0, control:0.95, unlocked:true, unlockCondition:null },
+		  { id:2, name:'Pallavolo', className:'ball-volley', scoreMultiplier:1.0, control:0.98, unlocked:true, unlockCondition:null },
+		  { id:3, name:'Calcio', className:'ball-soccer', scoreMultiplier:1.0, control:0.92, unlocked:true, unlockCondition:null },
+		  { id:4, name:'Tennis', className:'ball-tennis', scoreMultiplier:1.0, control:0.99, unlocked:true, unlockCondition:null },
+		  { id:5, name:'Golf', className:'ball-golf', scoreMultiplier:1.0, control:0.97, unlocked:true, unlockCondition:null },
+		  { id:6, name:'Rugby', className:'ball-rugby', scoreMultiplier:1.8, control:0.7, unlocked:false, unlockCondition:{type:'score',value:1000,text:'Raggiungi 1000 punti'} }
+		];
+		
+		let currentBallConfig = { scoreMultiplier: 1.0, controlFactor: 1.0 };
+
+		// load/save unlocks:
+		function loadUnlocks(){
+		  try{ const u = JSON.parse(localStorage.getItem('unlockedBalls')||'[]'); BALL_STYLES.forEach(s=>{ if(u.includes(s.id)) s.unlocked=true; }); }catch(e){}
+		}
+		function saveUnlocks(){ const unlockedIds = BALL_STYLES.filter(s=>s.unlocked).map(s=>s.id); localStorage.setItem('unlockedBalls', JSON.stringify(unlockedIds)); }
+
+		// render selection (example)
+		function renderBallSelection() {
+		  ballSelectionContainer.innerHTML = BALL_STYLES.map(style => {
+			const locked = !style.unlocked;
+			const lockOverlay = locked
+			  ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-xl rounded-full">🔒</div>`
+			  : '';
+
+			return `
+			  <div 
+				class="relative ball-option ${style.className} ${locked ? 'locked' : ''} ${style.id === selectedBallId ? 'selected' : ''}" 
+				data-ball-id="${style.id}" 
+				title="${style.name}"
+				${locked ? '' : `onclick="selectBall(${style.id})"`}
+			  >
+				${lockOverlay}
+			  </div>
+			`;
+		  }).join('');
+
+		  // Imposta la pallina iniziale come selezionata
+		  selectBall(selectedBallId);
+		}
+
+		// selectBall implementation (apply control & multiplier)
+		function selectBall(id){
+		  const s = BALL_STYLES.find(x=>x.id===id); if(!s) return;
+		  if(!s.unlocked){ const el = document.querySelector(`[data-ball-id="${id}"]`); if(el) el.animate([{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:260}); return;}
+		  currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
+		  const ballEl = document.getElementById('ball'); ballEl.className=''; ballEl.classList.add(s.className);
+		}
+		// checkUnlocks (call after score changes)
+		function checkUnlocks(){ let updated=false; BALL_STYLES.forEach(style=>{ if(!style.unlocked && style.unlockCondition){ const c=style.unlockCondition; let meets=false; if(c.type==='score' && score>=c.value) meets=true; if(meets){ style.unlocked=true; updated=true; const el=document.querySelector(`[data-ball-id="${style.id}"]`); if(el) el.animate([{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:380}); } } }); if(updated){ renderBallSelection(); saveUnlocks(); } }
+       
+	   // --- IMPOSTAZIONI DEL GIOCO E FISICA ---
+        const BASE_GRAVITY = 0.12;
+        const BASE_JUMP_FORCE = -6;
+        const restitution = 0.85;     
+        const TAP_FORCE_X = 10;       
+        const dampingX = 0.98;
+		const MAX_GRAVITY = 1.2;    
+		const MIN_JUMP_FORCE = -35;         
+
+        // Variabili Dinamiche
+        let gravity = BASE_GRAVITY;
+        let jumpForce = BASE_JUMP_FORCE;
+        let positionY = 50;
+        let velocityY = 0;
+        let positionX; 
+        let velocityX = 0;
+
+        // Stato di Gioco e Punteggio
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('bouncingBallHighScore') || '0', 10); 
+        let consecutiveTaps = 0;
+        let isClampedToGround = false;
+        let isGameOver = false; 
+        let isGameRunning = false;
+        let lastSpeedIncreaseScore = 0; 
+        let isAudioEnabled = false; // Nuovo flag per lo stato audio
+
+        // Variabili di selezione
+        let selectedBallId = 1; 
+        let selectedBallStyle = 'ball-1'; 
+        let selectedBallColor = '#4682B4'; // Blu di default
+
+        // Variabili audio
+        let lastBounceTime = 0;        
+        const minTimeBetweenBounces = 0.05; 
+        let bgMusicLoop; 
+        let introMusicLoop; 
+
+        // --- GESTIONE DEI SUONI con Tone.js ---
+        
+        // Funzione asincrona per sbloccare il contesto audio e avviare il transport
+        async function startAudioContext() {
+            if (Tone.context.state !== 'running') {
+                try {
+                    await Tone.start();
+                    console.log("Audio Context e Tone.start() Sbloccati.");
+                } catch(error) {
+                    console.error("Errore nell'avvio di Tone.js:", error);
+                    return false; // Fallito
+                }
+            }
+            if (Tone.Transport.state !== 'started') {
+                Tone.Transport.start(); 
+                console.log("Tone Transport avviato.");
+            }
+            
+            isAudioEnabled = true;
+            // Nasconde il pulsante di attivazione audio
+            audioToggleButton.style.opacity = '0';
+            setTimeout(() => { audioToggleButton.classList.add('hidden'); }, 300);
+            return true; // Successo
+        };
+        
+        // Funzione per attivare l'audio e avviare la musica introduttiva (chiamata dal pulsante)
+        window.toggleAudio = async function(startIntro = false) {
+            if (!isAudioEnabled) {
+                const started = await startAudioContext();
+                if (started && startIntro) {
+                    startIntroMusic();
+                }
+            }
+        }
+
+
+        const jumpSynth = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 }
+        }).toDestination();
+
+        const bounceSynth = new Tone.FMSynth({
+            envelope: {
+                attack: 0.005,
+                decay: 0.1,
+                sustain: 0.0,
+                release: 0.1
+            },
+            volume: -5 
+        }).toDestination();
+        
+        const splashSynth = new Tone.NoiseSynth({
+            noise: { type: 'pink' },
+            envelope: { attack: 0.01, decay: 0.4, sustain: 0.0, release: 0.05 },
+            volume: -10 
+        }).toDestination();
+
+        const gameBgSynth = new Tone.Synth({
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.2, release: 0.5 },
+            volume: -15 // Volume della musica di gioco (più basso)
+        }).toDestination();
+
+        const gameMelody = ["C4", ["E4", "G4"], "C5", ["G4", "E4"], "C4", ["E4", "G4"], "F4", "D4"];
+        let gameMelodyIndex = 0;
+        const gameBpm = 120;
+        const gameNoteDuration = "8n";
+
+        function startGameMusic() {
+            if (!isAudioEnabled) return;
+
+            stopMusic(); 
+            
+            gameMelodyIndex = 0; 
+            Tone.Transport.bpm.value = gameBpm;
+            
+            bgMusicLoop = new Tone.Loop(time => {
+                const note = gameMelody[gameMelodyIndex % gameMelody.length];
+                if (Array.isArray(note)) {
+                    note.forEach(n => gameBgSynth.triggerAttackRelease(n, gameNoteDuration, time));
+                } else {
+                    gameBgSynth.triggerAttackRelease(note, gameNoteDuration, time);
+                }
+                gameMelodyIndex++;
+            }, gameNoteDuration).start(0);
+        }
+        
+        // Ho cambiato il tipo di sintetizzatore ad un **PolySynth** per poter suonare accordi
+        const introBgSynth = new Tone.PolySynth(Tone.AMSynth, {
+            oscillator: { type: 'square' }, // Onde quadre per un suono più "arcade"
+            envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.5 }, 
+            volume: -8 
+        }).toDestination();
+        
+        // *** NUOVA MELODIA VIVACE: Arpeggi veloci in C maggiore ***
+        // C4-E4-G4 (C maj) e G4-C5-E5 (C maj arpeggio superiore)
+        const introMelody = ["C4", "E4", "G4", "C5", "G4", "C5", "E5", "G5"]; 
+        let introMelodyIndex = 0;
+        const introBpm = 140; // BPM più veloce
+        const introNoteDuration = "8n"; // Durata delle note più corta
+
+        function startIntroMusic() {
+             if (!isAudioEnabled) return;
+
+            stopMusic(); 
+            
+            introMelodyIndex = 0; 
+            Tone.Transport.bpm.value = introBpm; 
+            
+            introMusicLoop = new Tone.Loop(time => {
+                const note = introMelody[introMelodyIndex % introMelody.length];
+                introBgSynth.triggerAttackRelease(note, introNoteDuration, time); 
+                introMelodyIndex++;
+            }, introNoteDuration).start(0);
+        }
+
+
+        // Funzione per fermare tutta la musica
+        function stopMusic() {
+            if (bgMusicLoop) {
+                bgMusicLoop.dispose();
+                bgMusicLoop = null;
+            }
+            if (introMusicLoop) {
+                introMusicLoop.dispose();
+                introMusicLoop = null;
+            }
+        }
+
+
+        // Funzione per aggiornare l'interfaccia utente del punteggio
+        function updateScoreDisplay() {
+            scoreDisplay.firstChild.textContent = `Punti: ${score}`;
+            comboDisplay.textContent = `Combo: ${consecutiveTaps}`;
+            highScoreDisplay.textContent = `Record: ${highScore}`;
+            startHighScoreDisplay.textContent = highScore; 
+        }
+
+        // --- LOGICA DI SELEZIONE DELLA PALLINA ---
+        window.selectBall = function(id) {
+            const newSelection = BALL_STYLES.find(style => style.id === id);
+            if (!newSelection) return;
+
+            // Aggiorna lo stato
+            selectedBallId = id;
+            selectedBallStyle = newSelection.className;
+            
+            // Estrai il colore per la scia
+            switch (id) {
+                case 1: selectedBallColor = '#4682B4'; break; // Blu (Cielo)
+                case 2: selectedBallColor = '#FF4500'; break; // Rosso (Fuoco)
+                case 3: selectedBallColor = '#FFFF00'; break; // Giallo (Limone)
+                case 4: selectedBallColor = '#EE82EE'; break; // Viola (Magica)
+                case 5: selectedBallColor = '#3CB371'; break; // Verde (Menta)
+                default: selectedBallColor = 'rgba(255,255,255, 0.5)';
+            }
+            
+            // Aggiorna la visualizzazione
+            ball.className = ''; 
+            ball.classList.add(selectedBallStyle);
+            
+            // Aggiorna l'interfaccia di selezione
+            document.querySelectorAll('.ball-option').forEach(option => {
+                option.classList.remove('selected');
+                if (parseInt(option.dataset.ballId, 10) === id) {
+                    option.classList.add('selected');
+                }
+            });
+        }
+        
+        // --- FUNZIONE PER CREARE LA SCIA ---
+        let trailCounter = 0;
+        const TRAIL_DENSITY = 3; 
+        function createTrailElement() {
+            if (isClampedToGround && Math.abs(velocityY) < 0.5 && Math.abs(velocityX) < 0.5) return;
+            
+            trailCounter++;
+            if (trailCounter % TRAIL_DENSITY !== 0) return; 
+
+            const trail = document.createElement('div');
+            trail.classList.add('trail-element');
+            
+            const trailColor = selectedBallColor;
+
+            const ballSize = ball.offsetWidth;
+            const size = ballSize * 0.7; 
+            
+            const x = positionX + (ballSize - size) / 2;
+            const y = positionY + (ballSize - size) / 2;
+            
+            Object.assign(trail.style, {
+                width: `${size}px`,
+                height: `${size}px`,
+                top: `${y}px`,
+                left: `${x}px`,
+                backgroundColor: trailColor,
+                opacity: '0.4', 
+                transform: 'scale(1)',
+                boxShadow: `0 0 10px 5px ${trailColor}`
+            });
+
+            gameContainer.appendChild(trail);
+
+            setTimeout(() => {
+                Object.assign(trail.style, {
+                    opacity: '0',
+                    transform: 'scale(0.1)',
+                });
+            }, 50); 
+
+            setTimeout(() => {
+                trail.remove();
+            }, 350); 
+        }
+        
+        // --- FUNZIONE DI RESET DEL GIOCO/RESPAWN ---
+        function resetGame() {
+            gravity = BASE_GRAVITY;
+            jumpForce = BASE_JUMP_FORCE;
+            lastSpeedIncreaseScore = 0;
+            
+            positionY = 50; 
+            velocityY = 0; 
+            velocityX = 0;
+            isClampedToGround = false;
+            
+            ball.className = '';
+            ball.classList.add(selectedBallStyle);
+            ball.style.background = ''; 
+            ball.style.width = '60px';
+            ball.style.height = '60px';
+            ball.style.opacity = '1';
+            ball.style.transform = 'scale(1)'; 
+            ball.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+            ball.style.display = 'block'; 
+
+            positionX = gameContainer.offsetWidth / 2 - ball.offsetWidth / 2;
+            ball.style.top = `${positionY}px`;
+            ball.style.left = `${positionX}px`;
+
+            isGameOver = false;
+            gameOverMessage.classList.add('hidden');
+            updateScoreDisplay(); 
+        }
+
+        // --- LOGICA DI AVVIO DEL GIOCO ---
+        function startGame() {
+            stopMusic(); 
+            // Se l'audio è abilitato, avvia la musica di gioco
+            if (isAudioEnabled) {
+                startGameMusic(); 
+            }
+            
+            isGameRunning = true;
+            startOverlay.classList.add('hidden');
+            resetGame(); 
+        }
+        
+        // Uso di mousedown e touchstart per coprire sia mouse che touch
+        startButton.addEventListener('mousedown', async (e) => {
+            // Tenta di avviare l'audio prima di iniziare, se non è già attivo
+            if (!isAudioEnabled) {
+                await toggleAudio(false); // Sblocca solo il contesto, non avvia la musica introduttiva
+            }
+            startGame();
+            e.preventDefault(); 
+        });
+        startButton.addEventListener('touchstart', async (e) => {
+             if (!isAudioEnabled) {
+                await toggleAudio(false);
+            }
+            startGame();
+            e.preventDefault(); 
+        }); 
+
+        // --- EVENT LISTENER PER IL TOCCO/CLICK ---
+    function handleInteraction(event) {
+    if (!isGameRunning || isGameOver) return;
+
+    // 1) Punteggio: +10 per ogni tocco
+    score += 10;
+    consecutiveTaps++;
+
+    // 2) Applica il salto verticale (una sola volta)
+    velocityY = jumpForce;
+
+    // 3) Spinta orizzontale iniziale / leggera randomizzazione
+    velocityX += (Math.random() - 0.5) * TAP_FORCE_X;
+
+    // 4) Aumento progressivo ogni 5 tocchi
+    if (consecutiveTaps % 5 === 0) {
+        // Incrementi graduali
+        gravity *= 1.02;       // +2% gravità
+        jumpForce *= 1.05;     // +5% forza di salto (diventa più negativo)
+
+        // Applica i limiti definiti globalmente
+        if (gravity > MAX_GRAVITY) gravity = MAX_GRAVITY;
+        if (jumpForce < MIN_JUMP_FORCE) jumpForce = MIN_JUMP_FORCE;
+
+        // Feedback visivo di potenziamento (breve)
+        ball.style.transition = "box-shadow 0.18s ease, transform 0.18s ease";
+        ball.style.boxShadow = "0 0 28px 8px rgba(253,224,71,0.95)"; // dorato
+        ball.style.transform = "scale(1.08)";
+        setTimeout(() => {
+            ball.style.boxShadow = "0 5px 15px rgba(0,0,0,0.3)";
+            ball.style.transform = "scale(1)";
+        }, 180);
+    }
+
+    // 5) Limita velocità orizzontale a intervallo [-TAP_FORCE_X, TAP_FORCE_X]
+    velocityX = Math.max(Math.min(velocityX, TAP_FORCE_X), -TAP_FORCE_X);
+
+    // 6) Suono di salto se audio abilitato
+    if (isAudioEnabled) {
+        jumpSynth.triggerAttackRelease('C5', '8n');
+    }
+
+    // 7) Segnala che la palla non è più "clamped" al suolo
+    isClampedToGround = false;
+
+    // 8) Aggiorna display punteggio/combo
+    updateScoreDisplay();
+	checkUnlocks();
+
+    // Previeni comportamento touch default
+    if (event.cancelable) event.preventDefault();
+}
+
+        ball.addEventListener('mousedown', handleInteraction);
+        ball.addEventListener('touchstart', handleInteraction);
+
+
+        // --- GAME LOOP (Il cuore dell'animazione) ---
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            if (!isGameRunning || isGameOver) {
+                return;
+            }
+
+            // 1. Fisica
+            velocityY += gravity;
+            velocityX *= dampingX; 
+
+            positionY += velocityY;
+            positionX += velocityX;
+
+            // 2. Controlla le collisioni orizzontali
+            const ballSize = ball.offsetWidth;
+            const containerWidth = gameContainer.offsetWidth;
+
+            if (positionX + ballSize >= containerWidth) { 
+                positionX = containerWidth - ballSize; 
+                velocityX = -velocityX * restitution; 
+            } else if (positionX <= 0) { 
+                positionX = 0; 
+                velocityX = -velocityX * restitution; 
+            }
+            
+            // 3. Controlla le collisioni con il "pavimento"
+            const groundHeight = ground.offsetHeight; 
+            const groundPosition = gameContainer.offsetHeight - groundHeight - ball.offsetWidth;
+            
+            if (positionY >= groundPosition) {
+                
+                if (!isClampedToGround) {
+                    
+                    if (Math.abs(velocityY) > 1.0) { 
+                        
+                        // --- LOGICA DI FINE PARTITA ---
+                        stopMusic(); 
+                        
+                        if (score > highScore) {
+                            highScore = score;
+                            localStorage.setItem('bouncingBallHighScore', highScore.toString());
+                        }
+                        score = 0; 
+                        consecutiveTaps = 0;
+                        updateScoreDisplay(); 
+                        
+                        if(isAudioEnabled) splashSynth.triggerAttackRelease("4n");
+                        
+                        // Effetto visivo di Splash
+                        ball.className = '';
+                        ball.style.background = 'radial-gradient(circle, #FF4500, #8B0000)'; 
+                        ball.style.transform = 'scale(2.5)'; 
+                        ball.style.opacity = '0.0'; 
+                        ball.style.boxShadow = '0 0 50px #FF4500';
+                        isGameOver = true; 
+
+                        setTimeout(() => {
+                            ball.style.display = 'none'; 
+                            gameOverMessage.classList.remove('hidden'); 
+
+                            setTimeout(() => {
+                                isGameRunning = false; 
+                                // Mostra il menu START e la musica introduttiva (se l'audio è attivo)
+                                startOverlay.classList.remove('hidden'); 
+                                renderBallSelection(); 
+                                // Se l'audio è stato attivato dal pulsante 'Attiva Audio', la musica partirà qui
+                                if(isAudioEnabled) startIntroMusic(); 
+                            }, 1700); 
+
+                        }, 300); 
+
+                    } else { 
+                        // Rimbalzo normale
+                        if (isAudioEnabled && (Tone.now() - lastBounceTime) > minTimeBetweenBounces) { 
+                            lastBounceTime = Tone.now(); 
+                            bounceSynth.triggerAttackRelease('G2', '16n', "+0.001"); 
+                        }
+                        
+                        velocityY = -velocityY * restitution;
+                    }
+                }
+                
+                positionY = groundPosition;
+                isClampedToGround = true;
+
+            } else {
+                isClampedToGround = false;
+            }
+            
+            // 4. Creazione Scia
+            createTrailElement(); 
+
+            // 5. Aggiorna la posizione visiva della pallina
+            ball.style.top = `${positionY}px`;
+            ball.style.left = `${positionX}px`;
+        }
+        
+        // --- LOGICA SPLASH SCREEN E AVVIO INIZIALE ---
+        function initialSetup() {
+            splashScreen.style.opacity = '1';
+            
+            // Imposta il timer per la dissolvenza automatica dopo 3 secondi
+            setTimeout(() => {
+                splashScreen.style.opacity = '0'; // Avvia la transizione CSS (1000ms)
+            }, 3000); // 3 secondi di attesa automatica
+
+            // Nasconde la splash screen DOPO la fine della transizione
+            setTimeout(() => {
+                splashScreen.classList.add('hidden'); 
+                startOverlay.classList.remove('hidden'); 
+				loadUnlocks();  
+				checkUnlocks(); 
+                renderBallSelection(); 
+            }, 4000); // 3000ms di attesa + 1000ms di transizione
+        }
+
+        // --- INIZIO DEL GIOCO ---
+        // Avviamo il loop di gioco e la transizione automatica.
+        initialSetup(); 
+        gameLoop(); 
+    </script>
+
+</body>
+</html>
