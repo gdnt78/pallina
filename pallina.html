@@ -271,7 +271,7 @@
 		function checkUnlocks(){ let updated=false; BALL_STYLES.forEach(style=>{ if(!style.unlocked && style.unlockCondition){ const c=style.unlockCondition; let meets=false; if(c.type==='score' && score>=c.value) meets=true; if(meets){ style.unlocked=true; updated=true; const el=document.querySelector(`[data-ball-id="${style.id}"]`); if(el) el.animate([{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:380}); } } }); if(updated){ renderBallSelection(); saveUnlocks(); } }
        
 	   // --- IMPOSTAZIONI DEL GIOCO E FISICA ---
-        const BASE_GRAVITY = 0.12;
+        const BASE_GRAVITY = 0.03;
         const BASE_JUMP_FORCE = -6;
         const restitution = 0.85;     
         const TAP_FORCE_X = 10;       
@@ -766,3 +766,4 @@
 
 </body>
 </html>
+
