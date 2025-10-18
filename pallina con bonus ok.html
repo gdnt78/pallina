@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounce Masters</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Manteniamo la stessa versione di Tone.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            overflow: hidden;
+        }
+
+        #game-container {
+          background-color: #994c30;
+          background-image: url('sfondo-mattoni.jpg');
+          background-size: 300px 300px;
+          background-repeat: repeat;
+          background-position: top left;
+          border-color: #6d412e;
+          width: 100%;
+          height: calc(var(--vh, 1vh) * 100);
+          max-height: calc(var(--vh, 1vh) * 100);
+          box-sizing: border-box;
+          overflow: hidden;
+        }
+
+        #ground {
+          background-image: url('assets/ground/grass.png');
+          background-size: cover;
+          background-repeat: repeat-x;
+          background-position: center top;
+          height: 72px;
+          border-top: 6px solid rgba(0,0,0,0.25);
+          box-shadow: inset 0 6px 12px rgba(0,0,0,0.15);
+          pointer-events: none;
+          z-index: 10;
+        }
+
+        #ball {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            user-select: none;
+            transition: transform 0.3s ease-out, background 0.3s ease-out, opacity 0.3s ease-out;
+            z-index: 20;
+        }
+
+        .trail-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        #ball-hitbox {
+          position: absolute;
+          width: 140px;
+          height: 140px;
+          border-radius: 50%;
+          pointer-events: auto;
+          background: rgba(255,255,255,0);
+          z-index: 19;
+        }
+
+        .ball-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out, border 0.1s ease-in-out;
+            margin: 0 5px;
+            border: 3px solid transparent;
+        }
+
+        .ball-option:hover { transform: scale(1.1); }
+        .ball-option.selected { border-color: #fde047; transform: scale(1.2); box-shadow: 0 0 15px #fde047; }
+        .ball-option.locked { filter: grayscale(100%) brightness(0.5); cursor: not-allowed; position: relative; }
+
+        #ball, .ball-option { position: relative; }
+        .ball-soccer { background-image: url('assets/balls/soccer.jpg'); background-size: cover; background-position: center; }
+        .ball-basket { background-image: url('assets/balls/basket.jpg'); background-size: cover; background-position: center; }
+        .ball-volley { background-image: url('assets/balls/volley.jpg'); background-size: cover; background-position: center; }
+        .ball-tennis { background-image: url('assets/balls/tennis.jpg'); background-size: cover; background-position: center; }
+        .ball-golf   { background-image: url('assets/balls/golf.jpg'); background-size: cover; background-position: center; }
+
+        .ball-soccer::after,
+        .ball-basket::after,
+        .ball-volley::after,
+        .ball-tennis::after,
+        .ball-golf::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          pointer-events: none;
+          background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), rgba(255,255,255,0.06) 28%, transparent 45%);
+          mix-blend-mode: screen;
+        }
+
+        #splash-screen { transition: opacity 1000ms ease-in-out; }
+        #audio-toggle-button { transition: opacity 0.3s; }
+        h1 { letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 15px rgba(253, 224, 71, 0.6); }
+
+        /* Bonus UI */
+        #bonus-display {
+          position: absolute;
+          top: 4px;
+          left: 4px;
+          z-index: 30;
+          background: rgba(250,200,24,0.12);
+          color: white;
+          padding: 8px 10px;
+          border-radius: 8px;
+          font-weight: 600;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+        }
+        #bonus-count { font-weight: 800; color: #fde047; margin-left:6px; }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center m-0 p-0 overflow-hidden">
+
+    <div id="game-container" class="relative w-full max-w-md">
+        
+        <div id="high-score-display" class="absolute top-4 right-4 text-white text-xl font-semibold bg-sky-600/50 p-2 rounded-lg shadow-md z-30">
+            Record: 0
+        </div>
+
+        <div id="score-display" class="absolute top-16 left-1/2 -translate-x-1/2 text-sky-400 font-bold text-4xl z-30 p-2 rounded-lg text-center">
+            Punti: 0<br><span id="combo-display" class="text-lg text-yellow-300">Combo: 0</span>
+        </div>
+		
+		<!-- Bonus display -->
+		<div id="bonus-display" class="">
+			Bonus Sicurezza: <span id="bonus-count">0</span>
+		</div>
+
+		<div id="ball-hitbox" aria-hidden="true"></div>
+        <div id="ball"></div>
+        <div id="ground" class="absolute bottom-0 left-0 w-full h-[50px] z-10"></div> 
+        
+        <div id="game-over-message" class="absolute inset-0 flex items-center justify-center text-white text-4xl font-extrabold bg-black/70 z-40 hidden">
+            <div class="text-center p-8 rounded-xl bg-red-700/80 shadow-2xl">
+                <p>GAME OVER!</p>
+                <p class="text-lg mt-2">Nuova partita in arrivo...</p>
+            </div>
+        </div>
+        
+        <div id="splash-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-60 bg-gray-900 opacity-100 transition-opacity duration-1000">
+            <div class="text-center p-8">
+                <div class="mx-auto w-24 h-24 flex items-center justify-center mb-6 shadow-2xl transform rotate-3 scale-110 animate-pulse rounded-full overflow-hidden border-4 border-white/50">
+                    <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
+                </div>
+                <h1 class="text-6xl font-extrabold text-white mb-2 tracking-wider drop-shadow-lg">Bounce Masters</h1>
+                <p class="text-2xl text-sky-400 mt-4">Caricamento...</p>
+            </div>
+        </div>
+
+        <div id="start-overlay" class="absolute inset-0 flex items-center justify-center text-white z-50 hidden">
+            <div class="text-center p-8 rounded-xl bg-gray-900/90 shadow-2xl border-2 border-sky-500 max-w-sm w-11/12">
+                <div class="mb-8">
+                    <div class="mx-auto w-20 h-20 flex items-center justify-center mb-4 shadow-lg rounded-full overflow-hidden border-2 border-white/50">
+                         <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
+                    </div>
+                    <h1 class="text-5xl font-extrabold text-white mb-2">Bounce Masters</h1>
+                    <p class="text-xl text-sky-400">Tocca la pallina per mantenerla in aria.</p>
+                </div>
+                
+                <p class="text-lg mt-4 mb-2 text-gray-300">Scegli la tua pallina:</p>
+                <div id="ball-selection-container" class="flex justify-center mb-6"></div>
+                
+                <button id="audio-toggle-button" class="flex items-center justify-center w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800 text-lg font-bold rounded-lg shadow-md transition duration-150 mb-4" onclick="toggleAudio(true)">
+                    <svg id="audio-icon" class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    Attiva Audio e Musica
+                </button>
+                
+                <button id="start-button" class="px-8 py-4 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-3xl font-bold rounded-xl shadow-lg transition duration-150 transform hover:scale-105">
+                    START
+                </button>
+                <p class="text-sm mt-4 text-gray-400">Record: <span id="start-high-score">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- INIZIALIZZAZIONE ELEMENTI HTML ---
+        const ball = document.getElementById('ball');
+        const gameContainer = document.getElementById('game-container');
+        const ground = document.getElementById('ground'); 
+        const scoreDisplay = document.getElementById('score-display');
+        const comboDisplay = document.getElementById('combo-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const startOverlay = document.getElementById('start-overlay');
+        const startButton = document.getElementById('start-button');
+        const startHighScoreDisplay = document.getElementById('start-high-score');
+        const ballSelectionContainer = document.getElementById('ball-selection-container'); 
+        const splashScreen = document.getElementById('splash-screen'); 
+        const audioToggleButton = document.getElementById('audio-toggle-button');
+        const bonusCountEl = document.getElementById('bonus-count');
+
+        // Preload immagini
+        const IMAGES_TO_PRELOAD = [
+          'assets/balls/soccer.jpg',
+          'assets/balls/basket.jpg',
+          'assets/balls/volley.jpg',
+          'assets/balls/tennis.jpg',
+          'assets/balls/golf.jpg',
+          'assets/ground/grass.png'
+        ];
+        IMAGES_TO_PRELOAD.forEach(src => { const img = new Image(); img.src = src; });
+
+        function setVhCssVariable() {
+          const vh = window.innerHeight * 0.01;
+          document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        setVhCssVariable();
+        window.addEventListener('resize', setVhCssVariable);
+        window.addEventListener('orientationchange', setVhCssVariable);
+
+        // --- Hitbox creation ---
+        let hitbox = document.getElementById('ball-hitbox');
+        if(!hitbox){
+          hitbox = document.createElement('div');
+          hitbox.id = 'ball-hitbox';
+          gameContainer.appendChild(hitbox);
+        }
+
+        function updateHitboxPosition(){
+          const sizeW = hitbox.offsetWidth;
+          const sizeH = hitbox.offsetHeight;
+          const x = positionX + (ball.offsetWidth - sizeW) / 2;
+          const y = positionY + (ball.offsetHeight - sizeH) / 2;
+          hitbox.style.left = `${Math.round(x)}px`;
+          hitbox.style.top = `${Math.round(y)}px`;
+        }
+
+        function updateHitboxSizeByScore(currentScore){
+          const startSize = 140;
+          const minSize = 60;
+          const maxScoreForShrink = 2000;
+          const t = Math.min(currentScore / maxScoreForShrink, 1);
+          const newSize = Math.round(startSize - (startSize - minSize) * t);
+          hitbox.style.width = `${newSize}px`;
+          hitbox.style.height = `${newSize}px`;
+        }
+
+        // colleghiamo dopo la dichiarazione di handleInteraction (ho mantenuto l'ordine originale ma
+        // la funzione handleInteraction è dichiarata più sotto come function declaration -> hoisting OK)
+        // tuttavia alcune implementazioni preferiscono aggiungerli dopo; questo è compatibile.
+
+        // --- BALL STYLES ---
+        const BALL_STYLES = [
+          { id:1, name:'Basket', className:'ball-basket', thumb:'basket.jpg', scoreMultiplier:1.0, control:0.95, unlocked:true },
+          { id:2, name:'Pallavolo', className:'ball-volley', thumb:'volley.jpg', scoreMultiplier:1.0, control:0.98, unlocked:true },
+          { id:3, name:'Calcio', className:'ball-soccer', thumb:'soccer.jpg', scoreMultiplier:1.0, control:0.92, unlocked:true },
+          { id:4, name:'Tennis', className:'ball-tennis', thumb:'tennis.jpg', scoreMultiplier:1.0, control:0.99, unlocked:true },
+          { id:5, name:'Golf', className:'ball-golf', thumb:'golf.jpg', scoreMultiplier:1.0, control:0.97, unlocked:true },
+          { id:6, name:'Rugby', className:'ball-rugby', thumb:'rugby.jpg', scoreMultiplier:1.8, control:0.7, unlocked:false, unlockCondition:{type:'score',value:1000,text:'Raggiungi 1000 punti'} }
+        ];
+
+        let currentBallConfig = { scoreMultiplier: 1.0, controlFactor: 1.0 };
+
+        function loadUnlocks(){
+          try{ const u = JSON.parse(localStorage.getItem('unlockedBalls')||'[]'); BALL_STYLES.forEach(s=>{ if(u.includes(s.id)) s.unlocked=true; }); }catch(e){}
+        }
+        function saveUnlocks(){ const unlockedIds = BALL_STYLES.filter(s=>s.unlocked).map(s=>s.id); localStorage.setItem('unlockedBalls', JSON.stringify(unlockedIds)); }
+
+        function renderBallSelection() {
+          ballSelectionContainer.innerHTML = BALL_STYLES.map(style => {
+            const locked = !style.unlocked;
+            const lockOverlay = locked ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-xl rounded-full">🔒</div>` : '';
+            const thumbSrc = `assets/balls/${style.thumb}`;
+            return `
+              <div class="relative ball-option ${locked ? 'locked' : ''} ${style.id === selectedBallId ? 'selected' : ''}"
+                   data-ball-id="${style.id}" title="${style.name}"
+                   ${locked ? '' : `onclick="selectBall(${style.id})"`}>
+                <img src="${thumbSrc}" alt="${style.name}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.style.display='none'">
+                ${lockOverlay}
+              </div>
+            `;
+          }).join('');
+          document.querySelectorAll('.ball-option').forEach(option => {
+            if (parseInt(option.dataset.ballId, 10) === selectedBallId) option.classList.add('selected');
+          });
+        }
+
+        function selectBall(id) {
+          const s = BALL_STYLES.find(x => x.id === id);
+          if (!s) return;
+          if (!s.unlocked) {
+            const el = document.querySelector(`[data-ball-id="${id}"]`);
+            if (el) el.animate([{ transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 260 });
+            return;
+          }
+          currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
+          const ballEl = document.getElementById('ball');
+          ballEl.className = '';
+          ballEl.classList.add(s.className);
+          ballEl.style.background = '';
+          selectedBallId = id;
+          selectedBallStyle = s.className;
+          selectedBallColor = '#fde047';
+          document.querySelectorAll('.ball-option').forEach(option => {
+            option.classList.remove('selected');
+            if (parseInt(option.dataset.ballId, 10) === id) option.classList.add('selected');
+          });
+        }
+        function checkUnlocks(){ let updated=false; BALL_STYLES.forEach(style=>{ if(!style.unlocked && style.unlockCondition){ const c=style.unlockCondition; let meets=false; if(c.type==='score' && score>=c.value) meets=true; if(meets){ style.unlocked=true; updated=true; const el=document.querySelector(`[data-ball-id="${style.id}"]`); if(el) el.animate([{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:380}); } } }); if(updated){ renderBallSelection(); saveUnlocks(); } }
+
+       // --- GAME SETTINGS & PHYSICS ---
+        const BASE_GRAVITY = 0.12;
+        const BASE_JUMP_FORCE = -6;
+        const restitution = 0.85;
+        const TAP_FORCE_X = 10;
+        const dampingX = 0.98;
+        const MAX_GRAVITY = 1.2;
+        const MIN_JUMP_FORCE = -35;
+
+        let gravity = BASE_GRAVITY;
+        let jumpForce = BASE_JUMP_FORCE;
+        let positionY = 50;
+        let velocityY = 0;
+        let positionX;
+        let velocityX = 0;
+
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('bouncingBallHighScore') || '0', 10);
+        let consecutiveTaps = 0;
+        let isClampedToGround = false;
+        let isGameOver = false;
+        let isGameRunning = false;
+        let lastSpeedIncreaseScore = 0;
+        let isAudioEnabled = false;
+
+        // --- BONUS SICUREZZA ---
+        let bonusSecurity = 0;
+        const BONUS_EVERY = 100; // ogni 100 punti
+        const MAX_BONUS = 3;
+
+        function updateBonusUI() {
+          if (bonusCountEl) bonusCountEl.textContent = String(bonusSecurity);
+        }
+
+        // selection vars
+        let selectedBallId = 1;
+        let selectedBallStyle = 'ball-basket';
+        let selectedBallColor = '#fde047';
+
+        // audio vars
+        let lastBounceTime = 0;
+        const minTimeBetweenBounces = 0.05;
+        let bgMusicLoop;
+        let introMusicLoop;
+
+        async function startAudioContext() {
+            if (Tone.context.state !== 'running') {
+                try { await Tone.start(); console.log("Audio Context e Tone.start() Sbloccati."); } catch(error){ console.error("Errore nell'avvio di Tone.js:", error); return false; }
+            }
+            if (Tone.Transport.state !== 'started') { Tone.Transport.start(); console.log("Tone Transport avviato."); }
+            isAudioEnabled = true;
+            audioToggleButton.style.opacity = '0';
+            setTimeout(() => { audioToggleButton.classList.add('hidden'); }, 300);
+            return true;
+        };
+        window.toggleAudio = async function(startIntro = false) {
+            if (!isAudioEnabled) {
+                const started = await startAudioContext();
+                if (started && startIntro) startIntroMusic();
+            }
+        }
+
+        const jumpSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination();
+        const bounceSynth = new Tone.FMSynth({ envelope: { attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.1 }, volume: -5 }).toDestination();
+        const splashSynth = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.0, release: 0.05 }, volume: -10 }).toDestination();
+        const gameBgSynth = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.2, release: 0.5 }, volume: -15 }).toDestination();
+
+        const gameMelody = ["C4", ["E4", "G4"], "C5", ["G4", "E4"], "C4", ["E4", "G4"], "F4", "D4"];
+        let gameMelodyIndex = 0;
+        const gameBpm = 120;
+        const gameNoteDuration = "8n";
+
+        function startGameMusic() {
+            if (!isAudioEnabled) return;
+            stopMusic();
+            gameMelodyIndex = 0;
+            Tone.Transport.bpm.value = gameBpm;
+            bgMusicLoop = new Tone.Loop(time => {
+                const note = gameMelody[gameMelodyIndex % gameMelody.length];
+                if (Array.isArray(note)) note.forEach(n => gameBgSynth.triggerAttackRelease(n, gameNoteDuration, time));
+                else gameBgSynth.triggerAttackRelease(note, gameNoteDuration, time);
+                gameMelodyIndex++;
+            }, gameNoteDuration).start(0);
+        }
+
+        const introBgSynth = new Tone.PolySynth(Tone.AMSynth, { oscillator: { type: 'square' }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.5 }, volume: -8 }).toDestination();
+        const introMelody = ["C4", "E4", "G4", "C5", "G4", "C5", "E5", "G5"];
+        let introMelodyIndex = 0;
+        const introBpm = 140;
+        const introNoteDuration = "8n";
+
+        function startIntroMusic() {
+            if (!isAudioEnabled) return;
+            stopMusic();
+            introMelodyIndex = 0;
+            Tone.Transport.bpm.value = introBpm;
+            introMusicLoop = new Tone.Loop(time => {
+                const note = introMelody[introMelodyIndex % introMelody.length];
+                introBgSynth.triggerAttackRelease(note, introNoteDuration, time);
+                introMelodyIndex++;
+            }, introNoteDuration).start(0);
+        }
+
+        function stopMusic() {
+            if (bgMusicLoop) { bgMusicLoop.dispose(); bgMusicLoop = null; }
+            if (introMusicLoop) { introMusicLoop.dispose(); introMusicLoop = null; }
+        }
+
+        function updateScoreDisplay() {
+            // score-display contains HTML nodes; safer to set innerHTML
+            scoreDisplay.innerHTML = `Punti: ${score}<br><span id="combo-display" class="text-lg text-yellow-300">Combo: ${consecutiveTaps}</span>`;
+            highScoreDisplay.textContent = `Record: ${highScore}`;
+            startHighScoreDisplay.textContent = highScore;
+        }
+
+        // window.selectBall also available (used by render markup)
+        window.selectBall = function(id) {
+          const s = BALL_STYLES.find(style => style.id === id);
+          if (!s) return;
+          if (!s.unlocked) return;
+          selectedBallId = id;
+          selectedBallStyle = s.className;
+          selectedBallColor = '#fde047';
+          ball.className = '';
+          ball.classList.add(selectedBallStyle);
+          ball.style.background = '';
+          currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
+          document.querySelectorAll('.ball-option').forEach(option => {
+            option.classList.remove('selected');
+            if (parseInt(option.dataset.ballId, 10) === id) option.classList.add('selected');
+          });
+        };
+
+        // Trail
+        let trailCounter = 0;
+        const TRAIL_DENSITY = 3;
+        function createTrailElement() {
+            if (isClampedToGround && Math.abs(velocityY) < 0.5 && Math.abs(velocityX) < 0.5) return;
+            trailCounter++;
+            if (trailCounter % TRAIL_DENSITY !== 0) return;
+            const trail = document.createElement('div');
+            trail.classList.add('trail-element');
+            const trailColor = selectedBallColor;
+            const ballSize = ball.offsetWidth;
+            const size = ballSize * 0.7;
+            const x = positionX + (ballSize - size) / 2;
+            const y = positionY + (ballSize - size) / 2;
+            Object.assign(trail.style, {
+                width: `${size}px`,
+                height: `${size}px`,
+                top: `${y}px`,
+                left: `${x}px`,
+                backgroundColor: trailColor,
+                opacity: '0.4',
+                transform: 'scale(1)',
+                boxShadow: `0 0 10px 5px ${trailColor}`
+            });
+            gameContainer.appendChild(trail);
+            setTimeout(() => {
+                Object.assign(trail.style, { opacity: '0', transform: 'scale(0.1)' });
+            }, 50);
+            setTimeout(() => { trail.remove(); }, 350);
+        }
+
+        function resetGame() {
+            gravity = BASE_GRAVITY;
+            jumpForce = BASE_JUMP_FORCE;
+            lastSpeedIncreaseScore = 0;
+            positionY = 50;
+            velocityY = 0;
+            velocityX = 0;
+            isClampedToGround = false;
+            ball.className = '';
+            ball.classList.add(selectedBallStyle);
+            ball.style.background = '';
+            ball.style.width = '60px';
+            ball.style.height = '60px';
+            ball.style.opacity = '1';
+            ball.style.transform = 'scale(1)';
+            ball.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+            ball.style.display = 'block';
+            positionX = gameContainer.offsetWidth / 2 - ball.offsetWidth / 2;
+            ball.style.top = `${positionY}px`;
+            ball.style.left = `${positionX}px`;
+            isGameOver = false;
+            gameOverMessage.classList.add('hidden');
+            updateScoreDisplay();
+            updateBonusUI();
+            updateHitboxSizeByScore(score);
+            updateHitboxPosition();
+        }
+
+        function startGame() {
+            stopMusic();
+            if (isAudioEnabled) startGameMusic();
+            isGameRunning = true;
+            startOverlay.classList.add('hidden');
+            resetGame();
+        }
+
+        // Attach listeners to start button
+        startButton.addEventListener('mousedown', async (e) => {
+            if (!isAudioEnabled) { await toggleAudio(false); }
+            startGame();
+            e.preventDefault();
+        });
+        startButton.addEventListener('touchstart', async (e) => {
+            if (!isAudioEnabled) { await toggleAudio(false); }
+            startGame();
+            e.preventDefault();
+        });
+
+        // --- HANDLE INTERACTION ---
+        function handleInteraction(event) {
+            if (!isGameRunning || isGameOver) return;
+
+            // 1) Aggiungi punti
+            const previously = score;
+            score += 10;
+            consecutiveTaps++;
+
+            // BONUS: assegna 1 bonus ogni volta che attraversiamo una soglia di 100 punti
+            // (es. 90 -> 100, 190 -> 200...)
+            if (Math.floor(score / BONUS_EVERY) > Math.floor(previously / BONUS_EVERY)) {
+                bonusSecurity = Math.min(MAX_BONUS, bonusSecurity + 1);
+                updateBonusUI();
+                // piccolo feedback visivo
+                const b = document.getElementById('bonus-display');
+                if (b) b.animate([{ transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 320 });
+            }
+
+            // 2) Applica salto verticale
+            velocityY = jumpForce;
+            // 3) Spinta orizzontale
+            velocityX += (Math.random() - 0.5) * TAP_FORCE_X;
+
+            // 4) Aumento progressivo ogni 5 tocchi
+            if (consecutiveTaps % 5 === 0) {
+                gravity *= 1.02;
+                jumpForce *= 1.05;
+                if (gravity > MAX_GRAVITY) gravity = MAX_GRAVITY;
+                if (jumpForce < MIN_JUMP_FORCE) jumpForce = MIN_JUMP_FORCE;
+                ball.style.transition = "box-shadow 0.18s ease, transform 0.18s ease";
+                ball.style.boxShadow = "0 0 28px 8px rgba(253,224,71,0.95)";
+                ball.style.transform = "scale(1.08)";
+                setTimeout(() => { ball.style.boxShadow = "0 5px 15px rgba(0,0,0,0.3)"; ball.style.transform = "scale(1)"; }, 180);
+            }
+
+            velocityX = Math.max(Math.min(velocityX, TAP_FORCE_X), -TAP_FORCE_X);
+
+            if (isAudioEnabled) jumpSynth.triggerAttackRelease('C5', '8n');
+
+            isClampedToGround = false;
+
+            updateScoreDisplay();
+            checkUnlocks();
+            updateHitboxSizeByScore(score);
+            updateHitboxPosition();
+
+            if (event && event.cancelable) event.preventDefault();
+        }
+
+        // add listeners to both ball and hitbox
+        hitbox.addEventListener('mousedown', handleInteraction);
+        hitbox.addEventListener('touchstart', handleInteraction, {passive:false});
+        ball.addEventListener('mousedown', handleInteraction);
+        ball.addEventListener('touchstart', handleInteraction);
+
+        // --- GAME LOOP ---
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            if (!isGameRunning || isGameOver) return;
+
+            velocityY += gravity;
+            velocityX *= dampingX;
+            positionY += velocityY;
+            positionX += velocityX;
+
+            updateHitboxPosition();
+
+            const ballSize = ball.offsetWidth;
+            const containerWidth = gameContainer.offsetWidth;
+
+            if (positionX + ballSize >= containerWidth) { positionX = containerWidth - ballSize; velocityX = -velocityX * restitution; }
+            else if (positionX <= 0) { positionX = 0; velocityX = -velocityX * restitution; }
+
+            const groundHeight = ground.offsetHeight;
+            const groundPosition = gameContainer.offsetHeight - groundHeight - ball.offsetWidth;
+
+            if (positionY >= groundPosition) {
+                if (!isClampedToGround) {
+                    // Se la velocità verticale è alta, prima controlliamo i bonus
+                    if (Math.abs(velocityY) > 1.0) {
+                        if (bonusSecurity > 0) {
+                            // consuma un bonus e rimbalza in modo attenuato
+                            bonusSecurity--;
+                            updateBonusUI();
+                            if (isAudioEnabled) bounceSynth.triggerAttackRelease('D3', '16n');
+                            ball.style.boxShadow = "0 0 24px 6px rgba(34,197,94,0.95)";
+                            velocityY = -Math.abs(velocityY) * (restitution * 0.9);
+                            velocityX *= 0.6;
+                            setTimeout(()=>{ ball.style.boxShadow = '0 5px 15px rgba(0,0,0,0.3)'; }, 350);
+                        } else {
+                            // GAME OVER come nel comportamento originale
+                            stopMusic();
+                            if (score > highScore) { highScore = score; localStorage.setItem('bouncingBallHighScore', highScore.toString()); }
+                            score = 0; consecutiveTaps = 0;
+                            updateScoreDisplay();
+                            if(isAudioEnabled) splashSynth.triggerAttackRelease("4n");
+                            ball.className = '';
+                            ball.style.background = 'radial-gradient(circle, #FF4500, #8B0000)';
+                            ball.style.transform = 'scale(2.5)';
+                            ball.style.opacity = '0.0';
+                            ball.style.boxShadow = '0 0 50px #FF4500';
+                            isGameOver = true;
+                            setTimeout(() => {
+                                ball.style.display = 'none';
+                                gameOverMessage.classList.remove('hidden');
+                                setTimeout(() => {
+                                    isGameRunning = false;
+                                    startOverlay.classList.remove('hidden');
+                                    renderBallSelection();
+                                    if(isAudioEnabled) startIntroMusic();
+                                }, 1700);
+                            }, 300);
+                        }
+                    } else {
+                        // rimbalzo normale
+                        if (isAudioEnabled && (Tone.now() - lastBounceTime) > minTimeBetweenBounces) {
+                            lastBounceTime = Tone.now();
+                            bounceSynth.triggerAttackRelease('G2', '16n', "+0.001");
+                        }
+                        velocityY = -velocityY * restitution;
+                    }
+                }
+                positionY = groundPosition;
+                isClampedToGround = true;
+            } else {
+                isClampedToGround = false;
+            }
+
+            createTrailElement();
+            ball.style.top = `${positionY}px`;
+            ball.style.left = `${positionX}px`;
+        }
+
+        // --- SPLASH & INIT ---
+        function initialSetup() {
+            splashScreen.style.opacity = '1';
+            setTimeout(() => { splashScreen.style.opacity = '0'; }, 3000);
+            setTimeout(() => {
+                splashScreen.classList.add('hidden');
+                startOverlay.classList.remove('hidden');
+                loadUnlocks();
+                checkUnlocks();
+                updateBonusUI();
+                renderBallSelection();
+                selectBall(selectedBallId);
+            }, 4000);
+        }
+
+        // Inizializza valori iniziali e avvia loop
+        initialSetup();
+        gameLoop();
+    </script>
+
+</body>
+</html>
