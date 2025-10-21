@@ -449,34 +449,44 @@
         }
 
         // MODIFICATO: Aggiorna anche la preview della pallina
-        function selectBall(id) {
-          const s = BALL_STYLES.find(x => x.id === id);
-          if (!s) return;
-          if (!s.unlocked) {
-            const el = document.querySelector(`[data-ball-id="${id}"]`);
-            if (el) el.animate([{ transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 260 });
-            return;
-          }
-          currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
-          const ballEl = document.getElementById('ball');
-          ballEl.className = '';
-          ballEl.classList.add(s.className);
+		function selectBall(id) {
+		  const s = BALL_STYLES.find(x => x.id === id);
+		  if (!s) return;
+		  if (!s.unlocked) {
+			const el = document.querySelector(`[data-ball-id="${id}"]`);
+			if (el) el.animate([{ transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 260 });
+			return;
+		  }
+
+		  // Aggiorna configurazione attiva
+		  currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
+		  selectedBallId = id;
+		  selectedBallStyle = s.className;
+		  selectedBallColor = '#fde047';
+
+		  // Applica classe e dimensione
+		  const ballEl = document.getElementById('ball');
+		  ballEl.className = '';
+		  ballEl.classList.add(s.className);
+		  ballEl.style.background = '';
 		  ballEl.style.width = `${s.size}px`;
 		  ballEl.style.height = `${s.size}px`;
-          ballEl.style.background = '';
-          
-          // NUOVO: Aggiorna la preview della pallina
-          selectedBallPreview.className = '';
-          selectedBallPreview.classList.add(s.className);
-          
-          selectedBallId = id;
-          selectedBallStyle = s.className;
-          selectedBallColor = '#fde047';
-          document.querySelectorAll('.ball-option').forEach(option => {
-            option.classList.remove('selected');
-            if (parseInt(option.dataset.ballId, 10) === id) option.classList.add('selected');
-          });
-        }
+
+		  // Aggiorna anche la preview nel menu
+		  selectedBallPreview.className = '';
+		  selectedBallPreview.classList.add(s.className);
+
+		  // Aggiorna stato visivo delle miniature
+		  document.querySelectorAll('.ball-option').forEach(option => {
+			option.classList.remove('selected');
+			if (parseInt(option.dataset.ballId, 10) === id) option.classList.add('selected');
+			
+		  // Aggiorna posizione iniziale centrata per la nuova dimensione
+			const ballWidth = parseFloat(s.size);
+			positionX = (gameContainer.offsetWidth - ballWidth) / 2;
+			ball.style.left = `${positionX}px`;
+		  });
+		}
         function checkUnlocks(){ let updated=false; BALL_STYLES.forEach(style=>{ if(!style.unlocked && style.unlockCondition){ const c=style.unlockCondition; let meets=false; if(c.type==='score' && score>=c.value) meets=true; if(meets){ style.unlocked=true; updated=true; const el=document.querySelector(`[data-ball-id="${style.id}"]`); if(el) el.animate([{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:380}); } } }); if(updated){ renderBallSelection(); saveUnlocks(); } }
 
        // --- GAME SETTINGS & PHYSICS ---
@@ -692,43 +702,49 @@
         }
 
         // FIXED: Reset completo del gioco
-        function resetGame() {
-            gravity = BASE_GRAVITY;
-            jumpForce = BASE_JUMP_FORCE;
-            lastSpeedIncreaseScore = 0;
-            positionY = 50;
-            velocityY = 0;
-            velocityX = 0;
-            
-            // FIXED: Reset di tutte le variabili di gioco
-            score = 0;
-            consecutiveTaps = 0;
-            bonusSecurity = 0;
-            
-            isClampedToGround = false;
-            ball.className = '';
-            ball.classList.add(selectedBallStyle);
-            ball.style.background = '';
-            ball.style.width = '60px';
-            ball.style.height = '60px';
-            ball.style.opacity = '1';
-            ball.style.transform = 'scale(1)';
-            ball.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
-            ball.style.display = 'block';
-            positionX = gameContainer.offsetWidth / 2 - ball.offsetWidth / 2;
-            ball.style.top = `${positionY}px`;
-            ball.style.left = `${positionX}px`;
-            isGameOver = false;
-            
-            // FIXED: Nascondi correttamente il game over
-            gameOverMessage.classList.remove('show');
-            
-            updateScoreDisplay();
-            updateBonusUI();
-            updateHitboxSizeByScore(score);
-            updateHitboxPosition();
-        }
+		function resetGame() {
+			gravity = BASE_GRAVITY;
+			jumpForce = BASE_JUMP_FORCE;
+			lastSpeedIncreaseScore = 0;
+			velocityY = 0;
+			velocityX = 0;
 
+			// trova la palla selezionata
+			const s = BALL_STYLES.find(x => x.id === selectedBallId);
+
+			// reimposta la classe e le dimensioni corrette
+			ball.className = '';
+			ball.classList.add(selectedBallStyle);
+			ball.style.background = '';
+			ball.style.width = `${s.size}px`;
+			ball.style.height = `${s.size}px`;
+			ball.style.opacity = '1';
+			ball.style.transform = 'scale(1)';
+			ball.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+			ball.style.display = 'block';
+
+			// posizione centrata in base alla nuova larghezza
+			const ballWidth = parseFloat(s.size);
+			positionX = (gameContainer.offsetWidth - ballWidth) / 2;
+			positionY = 50;
+
+			ball.style.left = `${positionX}px`;
+			ball.style.top = `${positionY}px`;
+
+			// reset punteggio e stato
+			score = 0;
+			consecutiveTaps = 0;
+			bonusSecurity = 0;
+			isClampedToGround = false;
+			isGameOver = false;
+
+			gameOverMessage.classList.remove('show');
+
+			updateScoreDisplay();
+			updateBonusUI();
+			updateHitboxSizeByScore(score);
+			updateHitboxPosition();
+		}
         function startGame() {
             stopMusic();
             if (isAudioEnabled) startGameMusic();
