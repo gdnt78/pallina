@@ -181,6 +181,7 @@
         #ball, .ball-option { position: relative; }
 
         #splash-screen { transition: opacity 1000ms ease-in-out; position:absolute; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#0b0b0b, #111); color:white }
+        #audio-toggle-button { transition: opacity 0.3s; }
         h1 { letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 15px rgba(253, 224, 71, 0.6); }
 
         /* Bonus display specific styles */
@@ -249,25 +250,6 @@
             background: #047857;
         }
 
-        /* NUOVO: Stili per la pallina preview ingrandita */
-        #selected-ball-preview {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 224, 71, 0.3);
-            border: 4px solid rgba(253, 224, 71, 0.6);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            animation: ballFloat 3s ease-in-out infinite;
-        }
-
-        @keyframes ballFloat {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-10px) rotate(5deg); }
-        }
-
     </style>
 </head>
 <body class="bg-gray-900 flex items-center justify-center m-0 p-0 overflow-hidden">
@@ -307,7 +289,6 @@
             </div>
         </div>
 
-        <!-- Splash Screen - MANTIENE il logo78 -->
         <div id="splash-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-90 bg-gray-900 opacity-100 transition-opacity duration-1000">
             <div class="text-center p-8">
                 <div class="mx-auto w-24 h-24 flex items-center justify-center mb-6 shadow-2xl transform rotate-3 scale-110 animate-pulse rounded-full overflow-hidden border-4 border-white/50">
@@ -318,13 +299,11 @@
             </div>
         </div>
 
-        <!-- Start Overlay - MODIFICATO: rimosso logo78 e pulsante audio, aggiunta preview pallina -->
         <div id="start-overlay" style="display:none;" class="absolute inset-0 flex items-center justify-center text-white z-80">
             <div class="text-center p-8 rounded-xl bg-gray-900/90 shadow-2xl border-2 border-sky-500 max-w-sm w-11/12">
                 <div class="mb-8">
-                    <!-- NUOVO: Preview della pallina selezionata al posto del logo -->
-                    <div class="mx-auto mb-4 flex items-center justify-center">
-                        <div id="selected-ball-preview" class="ball-basket"></div>
+                    <div class="mx-auto w-20 h-20 flex items-center justify-center mb-4 shadow-lg rounded-full overflow-hidden border-2 border-white/50">
+                         <img src="logo78.png" onerror="this.onerror=null;this.src='logo78.png';" alt="Logo 78" class="w-full h-full object-cover">
                     </div>
                     <h1 class="text-5xl font-extrabold text-white mb-2">Bounce Masters</h1>
                     <p class="text-xl text-sky-400">Tocca la pallina per mantenerla in aria.</p>
@@ -333,7 +312,10 @@
                 <p class="text-lg mt-4 mb-2 text-gray-300">Scegli la tua pallina:</p>
                 <div id="ball-selection-container" class="flex justify-center mb-6"></div>
 
-                <!-- RIMOSSO: Pulsante "Attiva Audio e Musica" -->
+                <button id="audio-toggle-button" class="flex items-center justify-center w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800 text-lg font-bold rounded-lg shadow-md transition duration-150 mb-4" onclick="toggleAudio(true)">
+                    <svg id="audio-icon" class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    Attiva Audio e Musica
+                </button>
 
                 <button id="start-button" class="px-8 py-4 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-3xl font-bold rounded-xl shadow-lg transition duration-150 transform hover:scale-105">
                     START
@@ -357,6 +339,7 @@
         const startHighScoreDisplay = document.getElementById('start-high-score');
         const ballSelectionContainer = document.getElementById('ball-selection-container');
         const splashScreen = document.getElementById('splash-screen');
+        const audioToggleButton = document.getElementById('audio-toggle-button');
         const bonusCountEl = document.getElementById('bonus-count');
         const bonusCard = document.getElementById('bonus-card');
         const hud = document.getElementById('hud');
@@ -364,7 +347,6 @@
         const restartButton = document.getElementById('restart-button');
         const finalScoreEl = document.getElementById('final-score');
         const newRecordText = document.getElementById('new-record-text');
-        const selectedBallPreview = document.getElementById('selected-ball-preview'); // NUOVO
 
         // Preload immagini
         const IMAGES_TO_PRELOAD = [
@@ -447,7 +429,6 @@
           });
         }
 
-        // MODIFICATO: Aggiorna anche la preview della pallina
         function selectBall(id) {
           const s = BALL_STYLES.find(x => x.id === id);
           if (!s) return;
@@ -461,11 +442,6 @@
           ballEl.className = '';
           ballEl.classList.add(s.className);
           ballEl.style.background = '';
-          
-          // NUOVO: Aggiorna la preview della pallina
-          selectedBallPreview.className = '';
-          selectedBallPreview.classList.add(s.className);
-          
           selectedBallId = id;
           selectedBallStyle = s.className;
           selectedBallColor = '#fde047';
@@ -499,7 +475,7 @@
         let isGameOver = false;
         let isGameRunning = false;
         let lastSpeedIncreaseScore = 0;
-        let isAudioEnabled = true; // MODIFICATO: Audio attivato di default
+        let isAudioEnabled = false;
 
         // --- BONUS SICUREZZA ---
         let bonusSecurity = 0;
@@ -562,24 +538,22 @@
         let bgMusicLoop;
         let introMusicLoop;
 
-        // MODIFICATO: Funzione audio semplificata
         async function startAudioContext() {
             if (Tone.context.state !== 'running') {
-                try { 
-                    await Tone.start(); 
-                    console.log("Audio Context e Tone.start() Sbloccati."); 
-                } catch(error){ 
-                    console.error("Errore nell'avvio di Tone.js:", error); 
-                    return false; 
-                }
+                try { await Tone.start(); console.log("Audio Context e Tone.start() Sbloccati."); } catch(error){ console.error("Errore nell'avvio di Tone.js:", error); return false; }
             }
-            if (Tone.Transport.state !== 'started') { 
-                Tone.Transport.start(); 
-                console.log("Tone Transport avviato."); 
-            }
+            if (Tone.Transport.state !== 'started') { Tone.Transport.start(); console.log("Tone Transport avviato."); }
             isAudioEnabled = true;
+            audioToggleButton.style.opacity = '0';
+            setTimeout(() => { audioToggleButton.classList.add('hidden'); }, 300);
             return true;
         };
+        window.toggleAudio = async function(startIntro = false) {
+            if (!isAudioEnabled) {
+                const started = await startAudioContext();
+                if (started && startIntro) startIntroMusic();
+            }
+        }
 
         const jumpSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination();
         const bounceSynth = new Tone.FMSynth({ envelope: { attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.1 }, volume: -5 }).toDestination();
@@ -645,11 +619,6 @@
           ball.className = '';
           ball.classList.add(selectedBallStyle);
           ball.style.background = '';
-          
-          // NUOVO: Aggiorna anche la preview
-          selectedBallPreview.className = '';
-          selectedBallPreview.classList.add(s.className);
-          
           currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
           document.querySelectorAll('.ball-option').forEach(option => {
             option.classList.remove('selected');
@@ -798,14 +767,14 @@
             if(isAudioEnabled) startIntroMusic();
         });
 
-        // MODIFICATO: Attach listeners to start button - rimossa gestione audio
+        // Attach listeners to start button
         startButton.addEventListener('mousedown', async (e) => {
-            await startAudioContext(); // Attiva audio automaticamente
+            if (!isAudioEnabled) { await toggleAudio(false); }
             startGame();
             e.preventDefault();
         });
         startButton.addEventListener('touchstart', async (e) => {
-            await startAudioContext(); // Attiva audio automaticamente
+            if (!isAudioEnabled) { await toggleAudio(false); }
             startGame();
             e.preventDefault();
         });
@@ -951,8 +920,6 @@
                 selectBall(selectedBallId);
                 // set initial HUD values
                 updateScoreDisplay();
-                // MODIFICATO: Avvia automaticamente la musica intro
-                startIntroMusic();
             }, 4000);
         }
 
