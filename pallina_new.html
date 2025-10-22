@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <!-- Buy Me a Coffee Script -->
-    <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="gdnt78" data-color="#FFDD00" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
@@ -363,11 +362,23 @@
                 <p class="text-md mt-4 mb-2 text-gray-300">Scegli la tua pallina:</p>
                 <div id="ball-selection-container" class="flex justify-center mb-4"></div>
 
-                <!-- Buy Me a Coffee Button -->
-                <div class="mb-4">
-                    <div id="bmc-button-container"></div>
-                </div>
-
+		<!-- Buy Me a Coffee Button -->
+			<div id="bmc-button-container" style="display:none; margin-bottom: 1rem;">
+				<script 
+					type="text/javascript"
+					src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+					data-name="bmc-button"
+					data-slug="gdnt78"
+					data-color="#FFDD00"
+					data-emoji=""
+					data-font="Cookie"
+					data-text="Buy me a coffee"
+					data-outline-color="#000000"
+					data-font-color="#000000"
+					data-coffee-color="#ffffff">
+				</script>
+			</div>
+			
                 <button id="start-button" class="px-6 py-3 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-2xl font-bold rounded-xl shadow-lg transition duration-150 transform hover:scale-105">
                     START
                 </button>
@@ -951,6 +962,8 @@
             
             // Hide menu
             elements.startOverlay.style.display = 'none';
+			document.getElementById('bmc-button-container').style.display = 'none';
+
             
             // Enable hitbox clicks
             elements.hitbox.style.pointerEvents = 'auto';
@@ -1149,6 +1162,7 @@
             elements.hitbox.style.pointerEvents = 'none';
             elements.startOverlay.style.display = 'flex';
             renderBallSelection();
+			document.getElementById('bmc-button-container').style.display = 'block';
             if (gameState.isAudioEnabled) startIntroMusic();
         });
 
@@ -1164,17 +1178,22 @@
             e.preventDefault();
         });
 
-        // ===== INITIALIZATION =====
+// ===== INITIALIZATION =====
         function initialSetup() {
             elements.splashScreen.style.opacity = '1';
             elements.hud.style.display = 'none';
             elements.hud.setAttribute('aria-hidden', 'true');
             elements.ground.style.display = 'none';
 
-            setTimeout(() => { elements.splashScreen.style.opacity = '0'; }, 3000);
-            setTimeout(() => {
+            // 1. Avvia la dissolvenza (fade-out) dopo un breve ritardo
+            setTimeout(() => { elements.splashScreen.style.opacity = '0'; }, 100); 
+
+            // 2. Dopo 3000ms totali, nascondi la splash screen e MOSTRA IL MENU DI AVVIO
+            setTimeout(() => { 
                 elements.splashScreen.style.display = 'none';
-                elements.startOverlay.style.display = 'flex';
+                elements.startOverlay.style.display = 'flex'; // << MOSTRA IL MENU
+
+                // Logica che era precedentemente fuori posto
                 loadUnlocks();
                 checkUnlocks();
                 updateBonusUI();
@@ -1182,17 +1201,16 @@
                 selectBall(gameState.selectedBallId);
                 updateScoreDisplay();
                 
-                // Add Buy Me a Coffee button
-                const bmcContainer = document.getElementById('bmc-button-container');
-                if (bmcContainer && window.BMC) {
-                    bmcContainer.innerHTML = '<div id="bmc-wbtn"></div>';
-                }
-                
-                startIntroMusic();
-            }, 4000);
-        }
+			// Mostra il pulsante Buy Me a Coffee
+			document.getElementById('bmc-button-container').style.display = 'block';
+	
+            if (gameState.isAudioEnabled) startIntroMusic(); // Avvia musica introduttiva qui
 
-        // Start the game
+            }, 3000); // 3 secondi di ritardo
+
+        } // CHIUSURA CORRETTA DELLA FUNZIONE
+
+        // Inizia il gioco
         initialSetup();
         gameLoop();
     </script>
