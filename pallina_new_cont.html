@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounce Masters</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <!-- Buy Me a Coffee Script -->
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            overflow: hidden;
+            margin: 0;
+            background: #0b0b0b;
+        }
+
+        #game-container {
+            background-color: #994c30;
+            background-image: url('sfondo-mattoni.jpg');
+            background-size: 300px 300px;
+            background-repeat: repeat;
+            background-position: top left;
+            border-color: #6d412e;
+            width: 100%;
+            height: calc(var(--vh, 1vh) * 100);
+            max-height: calc(var(--vh, 1vh) * 100);
+            box-sizing: border-box;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* HUD Styles */
+        #hud {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 120;
+            display: none;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .hud-card {
+            pointer-events: auto;
+            background: rgba(0,0,0,0.35);
+            padding: 8px 12px;
+            border-radius: 10px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 120px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            opacity: 0;
+            transform: translateY(-6px) scale(0.98);
+        }
+
+        .hud-card.small { min-width: 110px; padding: 6px 10px; }
+        .hud-title { font-size: 12px; color: #cbd5e1; letter-spacing: 1px; }
+        .hud-value { font-weight: 800; font-size: 20px; color: #fff; }
+        .hud-sub { font-size: 12px; color: #fde047; margin-top: 4px; }
+
+        .hud-show .hud-card {
+            animation: hudFadeIn 420ms cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        .hud-show .hud-card:nth-child(1) { animation-delay: 0ms; }
+        .hud-show .hud-card:nth-child(2) { animation-delay: 60ms; }
+        .hud-show .hud-card:nth-child(3) { animation-delay: 120ms; }
+
+        @keyframes hudFadeIn {
+            0% { opacity: 0; transform: translateY(-12px) scale(0.96); }
+            60% { opacity: 1; transform: translateY(6px) scale(1.03); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Ground */
+        #ground {
+            background-image: url('assets/ground/grass.png');
+            background-size: cover;
+            background-repeat: repeat-x;
+            background-position: center top;
+            height: 72px;
+            border-top: 6px solid rgba(0,0,0,0.25);
+            box-shadow: inset 0 6px 12px rgba(0,0,0,0.15);
+            pointer-events: none;
+            z-index: 30;
+            display: none;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+        }
+
+        /* Ball Styles */
+        #ball {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            user-select: none;
+            transition: transform 0.18s ease-out, background 0.18s ease-out, opacity 0.18s ease-out;
+            z-index: 40;
+            display: none;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 50px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .ball-basket { background-image: url('assets/balls/basket.jpg') !important; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
+        .ball-soccer { background-image: url('assets/balls/soccer.jpg') !important; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
+        .ball-volley { background-image: url('assets/balls/volley.jpg') !important; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
+        .ball-tennis { background-image: url('assets/balls/tennis.jpg') !important; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
+        .ball-golf { background-image: url('assets/balls/golf.jpg') !important; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
+        .ball-rugby { background-image: url('assets/balls/rugby.jpg') !important; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
+
+        /* Trail Elements */
+        .trail-element {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            pointer-events: none;
+            z-index: 35;
+        }
+
+        /* Ball Hitbox */
+        #ball-hitbox {
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            pointer-events: none;
+            background: rgba(255,255,255,0);
+            z-index: 38;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Ball Selection */
+        .ball-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out, border 0.1s ease-in-out;
+            margin: 0 5px;
+            border: 3px solid transparent;
+        }
+
+        .ball-option:hover { transform: scale(1.1); }
+        .ball-option.selected { border-color: #fde047; transform: scale(1.2); box-shadow: 0 0 15px #fde047; }
+        .ball-option.locked { filter: grayscale(100%) brightness(0.5); cursor: not-allowed; position: relative; }
+
+        /* Screens */
+        #splash-screen {
+            transition: opacity 1000ms ease-in-out;
+            position: absolute;
+            inset: 0;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg,#0b0b0b, #111);
+            color: white;
+        }
+
+        h1 {
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 15px rgba(253, 224, 71, 0.6);
+        }
+
+        /* Bonus System */
+        #bonus-display { width: 100%; display: flex; align-items: center; justify-content: center; }
+        #bonus-count { font-weight: 900; color: #fde047; margin-left: 6px; font-size: 18px; }
+        .bonus-glow { box-shadow: 0 8px 30px rgba(253,214,80,0.9), 0 0 60px rgba(253,214,80,0.25) !important; transform: scale(1.06); }
+        .bonus-pop { animation: bonusPop 380ms cubic-bezier(.2,.8,.2,1); }
+
+        @keyframes bonusPop {
+            0% { transform: scale(1) }
+            50% { transform: scale(1.25); box-shadow: 0 0 24px #fde047 }
+            100% { transform: scale(1) }
+        }
+
+        /* Game Over */
+        #game-over-message {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 150;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        #game-over-message.show { opacity: 1; visibility: visible; }
+
+        #game-over-content {
+            text-align: center;
+            padding: 2rem;
+            border-radius: 1rem;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            color: white;
+            max-width: 90%;
+            animation: gameOverPulse 0.6s ease-out;
+        }
+
+        @keyframes gameOverPulse {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #restart-button {
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        #restart-button:hover { background: #047857; }
+
+        /* Ball Preview */
+        #selected-ball-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(253, 224, 71, 0.3);
+            border: 4px solid rgba(253, 224, 71, 0.6);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: ballFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes ballFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+
+        /* NEW: Obstacle Styles */
+        .obstacle {
+            position: absolute;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            border: 3px solid #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4), inset 0 2px 4px rgba(255,255,255,0.3);
+            z-index: 25;
+            animation: obstacleGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes obstacleGlow {
+            0% { box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4), inset 0 2px 4px rgba(255,255,255,0.3); }
+            100% { box-shadow: 0 6px 25px rgba(255, 107, 107, 0.8), inset 0 2px 4px rgba(255,255,255,0.5); }
+        }
+
+        .obstacle.warning {
+            animation: obstacleWarning 0.5s ease-in-out;
+        }
+
+        @keyframes obstacleWarning {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); background: linear-gradient(45deg, #ffeb3b, #ffc107); }
+        }
+
+        /* Buy Me a Coffee Button Styling */
+        #bmc-wbtn {
+            margin: 0.5rem 0 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        }
+		
+		/* Countdown Animation */
+		@keyframes countdownZoom {
+			0% { transform: scale(1); opacity: 1; }
+			70% { transform: scale(2.5); opacity: 0.8; }
+			100% { transform: scale(3.2); opacity: 0; }
+		}
+		.countdown-animate {
+			animation: countdownZoom 0.8s ease-out forwards;
+		}
+
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center m-0 p-0 overflow-hidden">
+
+    <div id="game-container" class="relative w-full max-w-md">
+
+        <!-- HUD: Bonus | Punti+Combo | Record -->
+        <div id="hud" aria-hidden="true">
+            <div id="bonus-card" class="hud-card small" aria-live="polite">
+                <div class="hud-title">Bonus Sicurezza</div>
+                <div id="bonus-display" class="hud-value"> <span id="bonus-count">0</span> </div>
+            </div>
+
+            <div id="score-card" class="hud-card">
+                <div class="hud-title">Punti</div>
+                <div id="score-value" class="hud-value">0</div>
+                <div id="combo-value" class="hud-sub">Combo: 0</div>
+            </div>
+
+            <div id="record-card" class="hud-card small">
+                <div class="hud-title">Record</div>
+                <div id="record-value" class="hud-value">0</div>
+            </div>
+        </div>
+
+        <div id="ball-hitbox" aria-hidden="true"></div>
+        <div id="ball"></div>
+        <div id="ground" class="absolute bottom-0 left-0 w-full h-[50px] z-10"></div>
+		
+		<!-- Countdown Overlay -->
+		<div id="countdown" class="absolute inset-0 flex items-center justify-center text-white text-8xl font-extrabold z-[200]" style="display:none;">
+			<span id="countdown-number" class="transform scale-100 opacity-100 transition-all duration-500 ease-out"></span>
+		</div>
+
+        <!-- Game Over Message -->
+        <div id="game-over-message">
+            <div id="game-over-content">
+                <h2 class="text-4xl font-extrabold mb-4">GAME OVER!</h2>
+                <p class="text-xl mb-2">Punteggio: <span id="final-score">0</span></p>
+                <p class="text-lg mb-4" id="new-record-text" style="display: none;">🎉 Nuovo Record! 🎉</p>
+                <button id="restart-button">Gioca Ancora</button>
+            </div>
+        </div>
+
+        <!-- Splash Screen -->
+        <div id="splash-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-90 bg-gray-900 opacity-100 transition-opacity duration-1000">
+            <div class="text-center p-8">
+                <div class="mx-auto w-24 h-24 flex items-center justify-center mb-6 shadow-2xl transform rotate-3 scale-110 animate-pulse rounded-full overflow-hidden border-4 border-white/50">
+                    <img src="logo78.jpg" onerror="this.onerror=null;this.src='logo78.jpg';" alt="Logo 78" class="w-full h-full object-cover">
+                </div>
+                <h1 class="text-6xl font-extrabold text-white mb-2 tracking-wider drop-shadow-lg">Bounce Masters</h1>
+                <p class="text-2xl text-sky-400 mt-4">Caricamento...</p>
+            </div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="start-overlay" style="display:none;" class="absolute inset-0 flex items-center justify-center text-white z-80">
+            <div class="text-center p-6 rounded-xl bg-gray-900/90 shadow-2xl border-2 border-sky-500 max-w-sm w-11/12">
+                <div class="mb-6">
+                    <!-- Ball Preview -->
+                    <div class="mx-auto mb-4 flex items-center justify-center">
+                        <div id="selected-ball-preview" class="ball-basket"></div>
+                    </div>
+                    <h1 class="text-4xl font-extrabold text-white mb-2">Bounce Masters</h1>
+                    <p class="text-lg text-sky-400">Tocca la pallina per mantenerla in aria.</p>
+                </div>
+
+                <p class="text-md mt-4 mb-2 text-gray-300">Scegli la tua pallina:</p>
+                <div id="ball-selection-container" class="flex justify-center mb-4"></div>
+
+		<!-- Buy Me a Coffee Button -->
+			<div id="bmc-button-container" style="display:none; margin-bottom: 1rem;">
+				<script 
+					type="text/javascript"
+					src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+					data-name="bmc-button"
+					data-slug="gdnt78"
+					data-color="#FFDD00"
+					data-emoji=""
+					data-font="Cookie"
+					data-text="Buy me a coffee"
+					data-outline-color="#000000"
+					data-font-color="#000000"
+					data-coffee-color="#ffffff">
+				</script>
+			</div>
+			
+                <button id="start-button" class="px-6 py-3 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-2xl font-bold rounded-xl shadow-lg transition duration-150 transform hover:scale-105">
+                    START
+                </button>
+                <p class="text-sm mt-3 text-gray-400">Record: <span id="start-high-score">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONSTANTS & CONFIGURATION =====
+        const CONFIG = {
+            PHYSICS: {
+                BASE_GRAVITY: 0.22,
+                BASE_JUMP_FORCE: -9,
+                RESTITUTION: 0.85,
+                TAP_FORCE_X: 14,
+                DAMPING_X: 0.96,
+                MAX_GRAVITY: 2.0,
+                MIN_JUMP_FORCE: -60
+            },
+            BONUS: {
+                EVERY: 100,
+                MAX: 3
+            },
+            OBSTACLES: {
+                START_SCORE: 150,
+                MIN_INTERVAL: 3000,
+                MAX_INTERVAL: 8000,
+                MIN_SIZE: 40,
+                MAX_SIZE: 80,
+                LIFETIME: 4000,
+                WARNING_TIME: 1000
+            },
+            TRAIL: {
+                DENSITY: 3
+            }
+        };
+
+        const BALL_STYLES = [
+            { id: 1, name: 'Basket', className: 'ball-basket', thumb: 'basket.jpg', scoreMultiplier: 1.0, control: 0.95, size: 60, unlocked: true },
+            { id: 2, name: 'Pallavolo', className: 'ball-volley', thumb: 'volley.jpg', scoreMultiplier: 1.0, control: 0.98, size: 60, unlocked: true },
+            { id: 3, name: 'Calcio', className: 'ball-soccer', thumb: 'soccer.jpg', scoreMultiplier: 1.0, control: 0.92, size: 60, unlocked: true },
+            { id: 4, name: 'Tennis', className: 'ball-tennis', thumb: 'tennis.jpg', scoreMultiplier: 1.5, control: 0.99, size: 45, unlocked: true },
+            { id: 5, name: 'Golf', className: 'ball-golf', thumb: 'golf.jpg', scoreMultiplier: 1.5, control: 0.97, size: 40, unlocked: true },
+            { id: 6, name: 'Rugby', className: 'ball-rugby', thumb: 'rugby.jpg', scoreMultiplier: 1.8, control: 0.7, size: 60, unlocked: false, unlockCondition: { type: 'score', value: 500, text: 'Raggiungi 500 punti' } }
+        ];
+
+        // ===== DOM ELEMENTS =====
+        const elements = {
+            ball: document.getElementById('ball'),
+            gameContainer: document.getElementById('game-container'),
+            ground: document.getElementById('ground'),
+            scoreValueEl: document.getElementById('score-value'),
+            comboValueEl: document.getElementById('combo-value'),
+            recordValueEl: document.getElementById('record-value'),
+            gameOverMessage: document.getElementById('game-over-message'),
+            startOverlay: document.getElementById('start-overlay'),
+            startButton: document.getElementById('start-button'),
+            startHighScoreDisplay: document.getElementById('start-high-score'),
+            ballSelectionContainer: document.getElementById('ball-selection-container'),
+            splashScreen: document.getElementById('splash-screen'),
+            bonusCountEl: document.getElementById('bonus-count'),
+            bonusCard: document.getElementById('bonus-card'),
+            hud: document.getElementById('hud'),
+            hitbox: document.getElementById('ball-hitbox'),
+            restartButton: document.getElementById('restart-button'),
+            finalScoreEl: document.getElementById('final-score'),
+            newRecordText: document.getElementById('new-record-text'),
+            selectedBallPreview: document.getElementById('selected-ball-preview')
+        };
+
+        // ===== GAME STATE =====
+        const gameState = {
+            // Physics
+            gravity: CONFIG.PHYSICS.BASE_GRAVITY,
+            jumpForce: CONFIG.PHYSICS.BASE_JUMP_FORCE,
+            positionY: 50,
+            velocityY: 0,
+            positionX: 0,
+            velocityX: 0,
+            
+            // Game
+            score: 0,
+            highScore: parseInt(localStorage.getItem('bouncingBallHighScore') || '0', 10),
+            consecutiveTaps: 0,
+            bonusSecurity: 0,
+            isClampedToGround: false,
+            isGameOver: false,
+            isGameRunning: false,
+            isAudioEnabled: true,
+            
+            // Ball selection
+            selectedBallId: 1,
+            selectedBallStyle: 'ball-basket',
+            selectedBallColor: '#fde047',
+            currentBallConfig: { scoreMultiplier: 1.0, controlFactor: 1.0 },
+            
+            // Audio
+            lastBounceTime: 0,
+            bgMusicLoop: null,
+            introMusicLoop: null,
+            
+            // Trail
+            trailCounter: 0,
+            
+            // Obstacles
+            obstacles: [],
+            lastObstacleTime: 0,
+            nextObstacleDelay: 0
+        };
+
+        // ===== UTILITY FUNCTIONS =====
+        function setVhCssVariable() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function randomInt(min, max) {
+            return Math.floor(random(min, max + 1));
+        }
+
+        // ===== INITIALIZATION =====
+        setVhCssVariable();
+        window.addEventListener('resize', setVhCssVariable);
+        window.addEventListener('orientationchange', setVhCssVariable);
+
+        // Preload images
+        const IMAGES_TO_PRELOAD = [
+            'assets/balls/soccer.jpg',
+            'assets/balls/basket.jpg',
+            'assets/balls/volley.jpg',
+            'assets/balls/tennis.jpg',
+            'assets/balls/golf.jpg',
+            'assets/ground/grass.png'
+        ];
+        IMAGES_TO_PRELOAD.forEach(src => {
+            const img = new Image();
+            img.src = src;
+        });
+
+        // ===== HITBOX MANAGEMENT =====
+        elements.hitbox.style.pointerEvents = 'none';
+
+        function updateHitboxPosition() {
+            const sizeW = elements.hitbox.offsetWidth;
+            const sizeH = elements.hitbox.offsetHeight;
+            const x = (gameState.positionX || 0) + (elements.ball.offsetWidth - sizeW) / 2;
+            const y = (gameState.positionY || 0) + (elements.ball.offsetHeight - sizeH) / 2;
+            elements.hitbox.style.left = `${Math.round(x)}px`;
+            elements.hitbox.style.top = `${Math.round(y)}px`;
+        }
+
+        function updateHitboxSizeByScore(currentScore) {
+            const startSize = 140;
+            const minSize = 60;
+            const maxScoreForShrink = 2000;
+            const t = Math.min(currentScore / maxScoreForShrink, 1);
+            const newSize = Math.round(startSize - (startSize - minSize) * t);
+            elements.hitbox.style.width = `${newSize}px`;
+            elements.hitbox.style.height = `${newSize}px`;
+        }
+
+        // ===== BALL MANAGEMENT =====
+        function loadUnlocks() {
+            try {
+                const u = JSON.parse(localStorage.getItem('unlockedBalls') || '[]');
+                BALL_STYLES.forEach(s => {
+                    if (u.includes(s.id)) s.unlocked = true;
+                });
+            } catch (e) {}
+        }
+
+        function saveUnlocks() {
+            const unlockedIds = BALL_STYLES.filter(s => s.unlocked).map(s => s.id);
+            localStorage.setItem('unlockedBalls', JSON.stringify(unlockedIds));
+        }
+
+        function renderBallSelection() {
+            elements.ballSelectionContainer.innerHTML = BALL_STYLES.map(style => {
+                const locked = !style.unlocked;
+                const lockOverlay = locked ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-xl rounded-full">🔒</div>` : '';
+                const thumbSrc = `assets/balls/${style.thumb}`;
+                return `
+                    <div class="relative ball-option ${locked ? 'locked' : ''} ${style.id === gameState.selectedBallId ? 'selected' : ''}"
+                         data-ball-id="${style.id}" title="${style.name}"
+                         ${locked ? '' : `onclick="selectBall(${style.id})"`}>
+                        <img src="${thumbSrc}" alt="${style.name}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.style.display='none'">
+                        ${lockOverlay}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectBall(id) {
+            const s = BALL_STYLES.find(x => x.id === id);
+            if (!s || !s.unlocked) {
+                const el = document.querySelector(`[data-ball-id="${id}"]`);
+                if (el) el.animate([{ transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 260 });
+                return;
+            }
+
+            // Update game state
+            gameState.currentBallConfig = { scoreMultiplier: s.scoreMultiplier || 1.0, controlFactor: s.control || 1.0 };
+            gameState.selectedBallId = id;
+            gameState.selectedBallStyle = s.className;
+            gameState.selectedBallColor = '#fde047';
+
+            // Update ball appearance
+            elements.ball.className = '';
+            elements.ball.classList.add(s.className);
+            elements.ball.style.background = '';
+            elements.ball.style.width = `${s.size}px`;
+            elements.ball.style.height = `${s.size}px`;
+
+            // Update preview
+            elements.selectedBallPreview.className = '';
+            elements.selectedBallPreview.classList.add(s.className);
+
+            // Update selection UI
+            document.querySelectorAll('.ball-option').forEach(option => {
+                option.classList.remove('selected');
+                if (parseInt(option.dataset.ballId, 10) === id) option.classList.add('selected');
+            });
+
+            // Center ball position
+            const ballWidth = parseFloat(s.size);
+            gameState.positionX = (elements.gameContainer.offsetWidth - ballWidth) / 2;
+            elements.ball.style.left = `${gameState.positionX}px`;
+        }
+
+        function checkUnlocks() {
+            let updated = false;
+            BALL_STYLES.forEach(style => {
+                if (!style.unlocked && style.unlockCondition) {
+                    const c = style.unlockCondition;
+                    let meets = false;
+                    if (c.type === 'score' && gameState.score >= c.value) meets = true;
+                    if (meets) {
+                        style.unlocked = true;
+                        updated = true;
+                        const el = document.querySelector(`[data-ball-id="${style.id}"]`);
+                        if (el) el.animate([{ transform: 'scale(1.15)' }, { transform: 'scale(1)' }], { duration: 380 });
+                    }
+                }
+            });
+            if (updated) {
+                renderBallSelection();
+                saveUnlocks();
+            }
+        }
+
+        // Make selectBall globally available
+        window.selectBall = selectBall;
+
+        // ===== OBSTACLE SYSTEM =====
+        function createObstacle() {
+            if (gameState.score < CONFIG.OBSTACLES.START_SCORE) return;
+            
+            const now = Date.now();
+            if (now - gameState.lastObstacleTime < gameState.nextObstacleDelay) return;
+
+            const containerWidth = elements.gameContainer.offsetWidth;
+            const containerHeight = elements.gameContainer.offsetHeight;
+            const groundHeight = elements.ground.offsetHeight;
+            
+            const width = randomInt(CONFIG.OBSTACLES.MIN_SIZE, CONFIG.OBSTACLES.MAX_SIZE);
+            const height = randomInt(CONFIG.OBSTACLES.MIN_SIZE, CONFIG.OBSTACLES.MAX_SIZE);
+            const x = randomInt(0, containerWidth - width);
+            const y = randomInt(100, containerHeight - groundHeight - height - 100);
+
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle warning';
+            obstacle.style.width = `${width}px`;
+            obstacle.style.height = `${height}px`;
+            obstacle.style.left = `${x}px`;
+            obstacle.style.top = `${y}px`;
+            obstacle.style.opacity = '0.7';
+
+            elements.gameContainer.appendChild(obstacle);
+
+            const obstacleData = {
+                element: obstacle,
+                x, y, width, height,
+                createdAt: now
+            };
+            gameState.obstacles.push(obstacleData);
+
+            // Remove warning class after warning time
+            setTimeout(() => {
+                obstacle.classList.remove('warning');
+            }, CONFIG.OBSTACLES.WARNING_TIME);
+
+            // Remove obstacle after lifetime
+            setTimeout(() => {
+                removeObstacle(obstacleData);
+            }, CONFIG.OBSTACLES.LIFETIME);
+
+            gameState.lastObstacleTime = now;
+            
+            // Calculate next obstacle delay (gets shorter as score increases)
+            const difficultyFactor = Math.max(0.3, 1 - (gameState.score - CONFIG.OBSTACLES.START_SCORE) / 1000);
+            gameState.nextObstacleDelay = random(
+                CONFIG.OBSTACLES.MIN_INTERVAL * difficultyFactor,
+                CONFIG.OBSTACLES.MAX_INTERVAL * difficultyFactor
+            );
+        }
+
+        function removeObstacle(obstacleData) {
+            const index = gameState.obstacles.indexOf(obstacleData);
+            if (index > -1) {
+                gameState.obstacles.splice(index, 1);
+                if (obstacleData.element.parentNode) {
+                    obstacleData.element.remove();
+                }
+            }
+        }
+
+        function checkObstacleCollisions() {
+            const ballRect = {
+                x: gameState.positionX,
+                y: gameState.positionY,
+                width: elements.ball.offsetWidth,
+                height: elements.ball.offsetHeight
+            };
+
+            gameState.obstacles.forEach(obstacle => {
+                if (isColliding(ballRect, obstacle)) {
+                    // Deflect ball
+                    const centerX = obstacle.x + obstacle.width / 2;
+                    const centerY = obstacle.y + obstacle.height / 2;
+                    const ballCenterX = ballRect.x + ballRect.width / 2;
+                    const ballCenterY = ballRect.y + ballRect.height / 2;
+                    
+                    const deltaX = ballCenterX - centerX;
+                    const deltaY = ballCenterY - centerY;
+                    
+                    // Apply deflection force
+                    const deflectionForce = 8;
+                    gameState.velocityX += Math.sign(deltaX) * deflectionForce;
+                    gameState.velocityY += Math.sign(deltaY) * deflectionForce * 0.5;
+                    
+                    // Visual feedback
+                    obstacle.element.style.background = 'linear-gradient(45deg, #ff9800, #f57c00)';
+                    setTimeout(() => {
+                        if (obstacle.element.parentNode) {
+                            obstacle.element.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a52)';
+                        }
+                    }, 200);
+                    
+                    // Audio feedback
+                    if (gameState.isAudioEnabled) {
+                        bounceSynth.triggerAttackRelease('A3', '16n');
+                    }
+                }
+            });
+        }
+
+        function isColliding(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function clearObstacles() {
+            gameState.obstacles.forEach(obstacle => {
+                if (obstacle.element.parentNode) {
+                    obstacle.element.remove();
+                }
+            });
+            gameState.obstacles = [];
+        }
+
+        // ===== AUDIO SYSTEM =====
+        async function startAudioContext() {
+            if (Tone.context.state !== 'running') {
+                try {
+                    await Tone.start();
+                    console.log("Audio Context started");
+                } catch (error) {
+                    console.error("Error starting Tone.js:", error);
+                    return false;
+                }
+            }
+            if (Tone.Transport.state !== 'started') {
+                Tone.Transport.start();
+                console.log("Tone Transport started");
+            }
+            gameState.isAudioEnabled = true;
+            return true;
+        }
+
+        const jumpSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination();
+        const bounceSynth = new Tone.FMSynth({ envelope: { attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.1 }, volume: -5 }).toDestination();
+        const splashSynth = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.0, release: 0.05 }, volume: -10 }).toDestination();
+        const gameBgSynth = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.2, release: 0.5 }, volume: -15 }).toDestination();
+
+        const gameMelody = ["C4", ["E4", "G4"], "C5", ["G4", "E4"], "C4", ["E4", "G4"], "F4", "D4"];
+        let gameMelodyIndex = 0;
+
+        function startGameMusic() {
+            if (!gameState.isAudioEnabled) return;
+            stopMusic();
+            gameMelodyIndex = 0;
+            Tone.Transport.bpm.value = 120;
+            gameState.bgMusicLoop = new Tone.Loop(time => {
+                const note = gameMelody[gameMelodyIndex % gameMelody.length];
+                if (Array.isArray(note)) note.forEach(n => gameBgSynth.triggerAttackRelease(n, "8n", time));
+                else gameBgSynth.triggerAttackRelease(note, "8n", time);
+                gameMelodyIndex++;
+            }, "8n").start(0);
+        }
+
+        const introBgSynth = new Tone.PolySynth(Tone.AMSynth, { oscillator: { type: 'square' }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.5 }, volume: -8 }).toDestination();
+        const introMelody = ["C4", "E4", "G4", "C5", "G4", "C5", "E5", "G5"];
+        let introMelodyIndex = 0;
+
+        function startIntroMusic() {
+            if (!gameState.isAudioEnabled) return;
+            stopMusic();
+            introMelodyIndex = 0;
+            Tone.Transport.bpm.value = 140;
+            gameState.introMusicLoop = new Tone.Loop(time => {
+                const note = introMelody[introMelodyIndex % introMelody.length];
+                introBgSynth.triggerAttackRelease(note, "8n", time);
+                introMelodyIndex++;
+            }, "8n").start(0);
+        }
+
+        function stopMusic() {
+            if (gameState.bgMusicLoop) {
+                gameState.bgMusicLoop.dispose();
+                gameState.bgMusicLoop = null;
+            }
+            if (gameState.introMusicLoop) {
+                gameState.introMusicLoop.dispose();
+                gameState.introMusicLoop = null;
+            }
+        }
+
+        // ===== UI UPDATES =====
+        function updateScoreDisplay() {
+            elements.scoreValueEl.textContent = String(gameState.score);
+            elements.comboValueEl.textContent = `Combo: ${gameState.consecutiveTaps}`;
+            elements.recordValueEl.textContent = String(gameState.highScore);
+            elements.startHighScoreDisplay.textContent = gameState.highScore;
+        }
+
+        function updateBonusUI() {
+            if (elements.bonusCountEl) elements.bonusCountEl.textContent = String(gameState.bonusSecurity);
+        }
+
+        function animateBonusAccumulated() {
+            const el = elements.bonusCard;
+            if (!el) return;
+            el.classList.add('bonus-glow');
+            el.classList.add('bonus-pop');
+            el.animate([
+                { transform: 'translateX(0)' },
+                { transform: 'translateX(-6px)' },
+                { transform: 'translateX(6px)' },
+                { transform: 'translateX(0)' }
+            ], { duration: 260, iterations: 1 }).onfinish = () => {
+                setTimeout(() => el.classList.remove('bonus-glow'), 220);
+                el.classList.remove('bonus-pop');
+            };
+        }
+
+        function animateBonusReset() {
+            const el = elements.bonusCard;
+            if (!el) return;
+            el.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.18)' },
+                { transform: 'scale(0.96)' },
+                { transform: 'scale(1)' }
+            ], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' });
+            el.animate([
+                { transform: 'translateX(0)' },
+                { transform: 'translateX(-8px)' },
+                { transform: 'translateX(8px)' },
+                { transform: 'translateX(-5px)' },
+                { transform: 'translateX(0)' }
+            ], { duration: 520, iterations: 1 });
+            elements.comboValueEl.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.12)' },
+                { transform: 'scale(1)' }
+            ], { duration: 420, easing: 'ease-out' });
+        }
+
+        // ===== TRAIL SYSTEM =====
+        function createTrailElement() {
+            if (gameState.isClampedToGround && Math.abs(gameState.velocityY) < 0.5 && Math.abs(gameState.velocityX) < 0.5) return;
+            gameState.trailCounter++;
+            if (gameState.trailCounter % CONFIG.TRAIL.DENSITY !== 0) return;
+            
+            const trail = document.createElement('div');
+            trail.classList.add('trail-element');
+            const trailColor = gameState.selectedBallColor;
+            const ballSize = elements.ball.offsetWidth;
+            const size = ballSize * 0.7;
+            const x = gameState.positionX + (ballSize - size) / 2;
+            const y = gameState.positionY + (ballSize - size) / 2;
+            
+            Object.assign(trail.style, {
+                width: `${size}px`,
+                height: `${size}px`,
+                top: `${y}px`,
+                left: `${x}px`,
+                backgroundColor: trailColor,
+                opacity: '0.4',
+                transform: 'scale(1)',
+                boxShadow: `0 0 10px 5px ${trailColor}`
+            });
+            
+            elements.gameContainer.appendChild(trail);
+            setTimeout(() => {
+                Object.assign(trail.style, { opacity: '0', transform: 'scale(0.1)' });
+            }, 50);
+            setTimeout(() => { trail.remove(); }, 350);
+        }
+
+        // ===== GAME LOGIC =====
+        function resetGame() {
+            // Reset physics
+            gameState.gravity = CONFIG.PHYSICS.BASE_GRAVITY;
+            gameState.jumpForce = CONFIG.PHYSICS.BASE_JUMP_FORCE;
+            gameState.velocityY = 0;
+            gameState.velocityX = 0;
+
+            // Find selected ball
+            const s = BALL_STYLES.find(x => x.id === gameState.selectedBallId);
+
+            // Reset ball appearance and position
+            elements.ball.className = '';
+            elements.ball.classList.add(gameState.selectedBallStyle);
+            elements.ball.style.background = '';
+            elements.ball.style.width = `${s.size}px`;
+            elements.ball.style.height = `${s.size}px`;
+            elements.ball.style.opacity = '1';
+            elements.ball.style.transform = 'scale(1)';
+            elements.ball.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+            elements.ball.style.display = 'block';
+
+            // Center ball position
+            const ballWidth = parseFloat(s.size);
+            gameState.positionX = (elements.gameContainer.offsetWidth - ballWidth) / 2;
+            gameState.positionY = 50;
+            elements.ball.style.left = `${gameState.positionX}px`;
+            elements.ball.style.top = `${gameState.positionY}px`;
+
+            // Reset game state
+            gameState.score = 0;
+            gameState.consecutiveTaps = 0;
+            gameState.bonusSecurity = 0;
+            gameState.isClampedToGround = false;
+            gameState.isGameOver = false;
+
+            // Clear obstacles
+            clearObstacles();
+            gameState.lastObstacleTime = 0;
+            gameState.nextObstacleDelay = 0;
+
+            elements.gameOverMessage.classList.remove('show');
+
+            updateScoreDisplay();
+            updateBonusUI();
+            updateHitboxSizeByScore(gameState.score);
+            updateHitboxPosition();
+        }
+
+		function startCountdown(callback) {
+			const countdown = document.getElementById('countdown');
+			const countdownNumber = document.getElementById('countdown-number');
+
+			// Evita avvii multipli
+			if (!countdown || countdown.style.display === 'flex') return;
+
+			let count = 3;
+
+			countdown.style.display = 'flex';
+			countdownNumber.textContent = count;
+
+			const synth = new Tone.Synth({
+				oscillator: { type: 'square' },
+				envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 },
+				volume: -6
+			}).toDestination();
+
+			// mostra e suona il primo numero subito (una sola volta)
+			countdownNumber.classList.remove('countdown-animate');
+			void countdownNumber.offsetWidth;
+			countdownNumber.classList.add('countdown-animate');
+			synth.triggerAttackRelease('C4', '8n');
+
+			const interval = setInterval(() => {
+				count--; // decrementa prima di mostrare -> evita il "3 3" duplicate
+
+				if (count > 0) {
+					countdownNumber.classList.remove('countdown-animate');
+					void countdownNumber.offsetWidth;
+					countdownNumber.textContent = count;
+					countdownNumber.classList.add('countdown-animate');
+					synth.triggerAttackRelease('C4', '8n');
+				} else if (count === 0) {
+					// mostra GO!
+					countdownNumber.classList.remove('countdown-animate');
+					void countdownNumber.offsetWidth;
+					countdownNumber.textContent = 'GO!';
+					countdownNumber.classList.add('countdown-animate');
+					synth.triggerAttackRelease('E4', '8n');
+				} else {
+					// fine conto alla rovescia: nascondi e avvia callback
+					clearInterval(interval);
+					setTimeout(() => {
+						countdown.style.display = 'none';
+						callback(); // Avvia il gioco qui
+					}, 600);
+				}
+			}, 1000);
+		}
+
+        function startGame() {
+            stopMusic();
+            if (gameState.isAudioEnabled) startGameMusic();
+            gameState.isGameRunning = true;
+            
+            // Hide menu
+            elements.startOverlay.style.display = 'none';
+			document.getElementById('bmc-button-container').style.display = 'none';
+
+            
+            // Enable hitbox clicks
+            elements.hitbox.style.pointerEvents = 'auto';
+            
+            // Show HUD and ground with animation
+            elements.hud.style.display = 'flex';
+            elements.hud.setAttribute('aria-hidden', 'false');
+            elements.hud.classList.remove('hud-show');
+            
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    elements.hud.classList.add('hud-show');
+                });
+            });
+            
+            elements.ground.style.display = 'block';
+            resetGame();
+        }
+
+        function handleGameOver() {
+            stopMusic();
+
+            // Check for new record
+            const isNewRecord = gameState.score > gameState.highScore;
+            if (isNewRecord) {
+                gameState.highScore = gameState.score;
+                localStorage.setItem('bouncingBallHighScore', gameState.highScore.toString());
+                elements.newRecordText.style.display = 'block';
+            } else {
+                elements.newRecordText.style.display = 'none';
+            }
+
+            // Show final score
+            elements.finalScoreEl.textContent = gameState.score;
+
+            // Ball visual effects
+            if (gameState.isAudioEnabled) splashSynth.triggerAttackRelease("4n");
+            elements.ball.className = '';
+            elements.ball.style.background = 'radial-gradient(circle, #FF4500, #8B0000)';
+            elements.ball.style.transform = 'scale(2.5)';
+            elements.ball.style.opacity = '0.0';
+            elements.ball.style.boxShadow = '0 0 50px #FF4500';
+
+            gameState.isGameOver = true;
+
+            // Hide HUD and ground
+            elements.hud.style.display = 'none';
+            elements.hud.setAttribute('aria-hidden', 'true');
+            elements.ground.style.display = 'none';
+
+            // Clear obstacles
+            clearObstacles();
+
+            // Show game over after delay
+            setTimeout(() => {
+                elements.ball.style.display = 'none';
+                elements.gameOverMessage.classList.add('show');
+            }, 300);
+        }
+
+        function handleInteraction(event) {
+            if (!gameState.isGameRunning || gameState.isGameOver) return;
+
+            // Add points
+            const previously = gameState.score;
+            gameState.score += Math.round(10 * gameState.currentBallConfig.scoreMultiplier);
+            gameState.consecutiveTaps++;
+
+            // Bonus system
+            if (Math.floor(gameState.score / CONFIG.BONUS.EVERY) > Math.floor(previously / CONFIG.BONUS.EVERY)) {
+                gameState.bonusSecurity = Math.min(CONFIG.BONUS.MAX, gameState.bonusSecurity + 1);
+                updateBonusUI();
+                animateBonusAccumulated();
+            }
+
+            // Apply jump
+            gameState.velocityY = gameState.jumpForce;
+            gameState.velocityX += (Math.random() - 0.5) * CONFIG.PHYSICS.TAP_FORCE_X;
+
+            // Progressive difficulty
+            if (gameState.consecutiveTaps % 3 === 0) {
+                gameState.gravity *= 1.06;
+                gameState.jumpForce *= 1.12;
+                if (gameState.gravity > CONFIG.PHYSICS.MAX_GRAVITY) gameState.gravity = CONFIG.PHYSICS.MAX_GRAVITY;
+                if (gameState.jumpForce < CONFIG.PHYSICS.MIN_JUMP_FORCE) gameState.jumpForce = CONFIG.PHYSICS.MIN_JUMP_FORCE;
+                
+                elements.ball.style.transition = "box-shadow 0.18s ease, transform 0.18s ease";
+                elements.ball.style.boxShadow = "0 0 36px 10px rgba(253,224,71,0.95)";
+                elements.ball.style.transform = "scale(1.12)";
+                setTimeout(() => {
+                    elements.ball.style.boxShadow = "0 5px 15px rgba(0,0,0,0.3)";
+                    elements.ball.style.transform = "scale(1)";
+                }, 180);
+            }
+
+            gameState.velocityX = Math.max(Math.min(gameState.velocityX, CONFIG.PHYSICS.TAP_FORCE_X), -CONFIG.PHYSICS.TAP_FORCE_X);
+
+            if (gameState.isAudioEnabled) jumpSynth.triggerAttackRelease('C5', '8n');
+
+            gameState.isClampedToGround = false;
+
+            updateScoreDisplay();
+            checkUnlocks();
+            updateHitboxSizeByScore(gameState.score);
+            updateHitboxPosition();
+
+            if (event && event.cancelable) event.preventDefault();
+        }
+
+        // ===== GAME LOOP =====
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            if (!gameState.isGameRunning || gameState.isGameOver) return;
+
+            // Physics update
+            gameState.velocityY += gameState.gravity;
+            gameState.velocityX *= CONFIG.PHYSICS.DAMPING_X;
+            gameState.positionY += gameState.velocityY;
+            gameState.positionX += gameState.velocityX;
+
+            updateHitboxPosition();
+
+            const ballSize = elements.ball.offsetWidth;
+            const containerWidth = elements.gameContainer.offsetWidth;
+
+            // Wall collisions
+            if (gameState.positionX + ballSize >= containerWidth) {
+                gameState.positionX = containerWidth - ballSize;
+                gameState.velocityX = -gameState.velocityX * CONFIG.PHYSICS.RESTITUTION;
+            } else if (gameState.positionX <= 0) {
+                gameState.positionX = 0;
+                gameState.velocityX = -gameState.velocityX * CONFIG.PHYSICS.RESTITUTION;
+            }
+
+            // Ground collision
+            const groundHeight = elements.ground.offsetHeight;
+            const groundPosition = elements.gameContainer.offsetHeight - groundHeight - elements.ball.offsetWidth;
+
+            if (gameState.positionY >= groundPosition) {
+                if (!gameState.isClampedToGround) {
+                    if (Math.abs(gameState.velocityY) > 1.0) {
+                        if (gameState.bonusSecurity > 0) {
+                            // Use bonus
+                            gameState.bonusSecurity--;
+                            gameState.consecutiveTaps = 0;
+                            updateBonusUI();
+                            animateBonusReset();
+                            updateScoreDisplay();
+                            if (gameState.isAudioEnabled) bounceSynth.triggerAttackRelease('D3', '16n');
+                            elements.ball.style.boxShadow = "0 0 24px 6px rgba(34,197,94,0.95)";
+                            gameState.velocityY = -Math.abs(gameState.velocityY) * (CONFIG.PHYSICS.RESTITUTION * 0.9);
+                            gameState.velocityX *= 0.6;
+                            setTimeout(() => { elements.ball.style.boxShadow = '0 5px 15px rgba(0,0,0,0.3)'; }, 350);
+                        } else {
+                            handleGameOver();
+                        }
+                    } else {
+                        // Normal bounce
+                        if (gameState.isAudioEnabled && (Tone.now() - gameState.lastBounceTime) > 0.05) {
+                            gameState.lastBounceTime = Tone.now();
+                            bounceSynth.triggerAttackRelease('G2', '16n', "+0.001");
+                        }
+                        gameState.velocityY = -gameState.velocityY * CONFIG.PHYSICS.RESTITUTION;
+                    }
+                }
+                gameState.positionY = groundPosition;
+                gameState.isClampedToGround = true;
+            } else {
+                gameState.isClampedToGround = false;
+            }
+
+            // Check obstacle collisions
+            checkObstacleCollisions();
+
+            // Create obstacles
+            createObstacle();
+
+            // Create trail
+            createTrailElement();
+
+            // Update ball position
+            elements.ball.style.top = `${gameState.positionY}px`;
+            elements.ball.style.left = `${gameState.positionX}px`;
+        }
+
+        // ===== EVENT LISTENERS =====
+        elements.hitbox.addEventListener('mousedown', handleInteraction);
+        elements.hitbox.addEventListener('touchstart', handleInteraction, { passive: false });
+        elements.ball.addEventListener('mousedown', handleInteraction);
+        elements.ball.addEventListener('touchstart', handleInteraction);
+
+        elements.restartButton.addEventListener('click', () => {
+            elements.gameOverMessage.classList.remove('show');
+            gameState.isGameRunning = false;
+            elements.hitbox.style.pointerEvents = 'none';
+            elements.startOverlay.style.display = 'flex';
+            renderBallSelection();
+			document.getElementById('bmc-button-container').style.display = 'block';
+            if (gameState.isAudioEnabled) startIntroMusic();
+        });
+
+		// Helper: evita avvii multipli
+		function isCountdownRunning() {
+			const cd = document.getElementById('countdown');
+			return cd && cd.style.display === 'flex';
+		}
+
+		elements.startButton.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			if (isCountdownRunning()) return;
+
+			// Nascondi subito il menu e il bottone BuyMe... così il giocatore vede il countdown pulito
+			elements.startOverlay.style.display = 'none';
+			const bmc = document.getElementById('bmc-button-container');
+			if (bmc) bmc.style.display = 'none';
+
+			// Avvia l'audio in background (non await, per non bloccare la UI)
+			startAudioContext().catch(err => console.warn('Audio context non avviato subito:', err));
+
+			// Avvia il conto alla rovescia che poi chiamerà startGame()
+			startCountdown(startGame);
+		});
+
+		elements.startButton.addEventListener('touchstart', (e) => {
+			e.preventDefault();
+			if (isCountdownRunning()) return;
+
+			elements.startOverlay.style.display = 'none';
+			const bmc = document.getElementById('bmc-button-container');
+			if (bmc) bmc.style.display = 'none';
+
+			startAudioContext().catch(err => console.warn('Audio context non avviato subito:', err));
+			startCountdown(startGame);
+		});
+
+// ===== INITIALIZATION =====
+        function initialSetup() {
+            elements.splashScreen.style.opacity = '1';
+            elements.hud.style.display = 'none';
+            elements.hud.setAttribute('aria-hidden', 'true');
+            elements.ground.style.display = 'none';
+
+		// 1. Avvia la dissolvenza (fade-out) dopo 2 secondi
+		setTimeout(() => {
+			elements.splashScreen.style.opacity = '0';
+		}, 2000); // <-- aumento da 100 a 2000 ms
+
+		// 2. Dopo 4500ms totali, nascondi la splash screen e MOSTRA IL MENU DI AVVIO
+		setTimeout(() => { 
+			elements.splashScreen.style.display = 'none';
+			elements.startOverlay.style.display = 'flex'; // << MOSTRA IL MENU
+
+			// Logica di inizializzazione
+			loadUnlocks();
+			checkUnlocks();
+			updateBonusUI();
+			renderBallSelection();
+			selectBall(gameState.selectedBallId);
+			updateScoreDisplay();
+			document.getElementById('bmc-button-container').style.display = 'block';
+
+			if (gameState.isAudioEnabled) startIntroMusic(); // Avvia musica introduttiva qui
+
+		}, 4500); // <-- aumento da 3000 a 4500 ms
+
+        } // CHIUSURA CORRETTA DELLA FUNZIONE
+
+        // Inizia il gioco
+        initialSetup();
+        gameLoop();
+    </script>
+
+</body>
+</html>
